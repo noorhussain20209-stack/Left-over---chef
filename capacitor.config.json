@@ -1,0 +1,6 @@
+{
+  "appId": "com.leftoverchef.app",
+  "appName": "Leftover Chef",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
