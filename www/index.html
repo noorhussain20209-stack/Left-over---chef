@@ -488,4 +488,100 @@ const CUISINE_PROFILES = {
   // Africa
   moroccan:{cuisine:"Moroccan", region:"Morocco", staples:["cumin","cinnamon","preserved lemon","olive oil","onion"], starch:"couscous", aliases:["morocco"]},
   tunisian:{cuisine:"Tunisian", region:"Tunisia", staples:["harissa","caraway","garlic","olive oil","coriander"], starch:"couscous", aliases:["tunisia"]},
-  algerian:{cuisine:"Algerian", region:"Algeria", staples:["cumin","paprika","garlic","olive oil","coriander"], starch:"couscous or bread", alia
+  algerian:{cuisine:"Algerian", region:"Algeria", staples:["cumin","paprika","garlic","olive oil","coriander"], starch:"couscous or bread", aliases:["algeria"]},
+  egyptian:{cuisine:"Egyptian", region:"Egypt", staples:["cumin","garlic","coriander","onion","lemon"], starch:"rice or flatbread", aliases:["egypt"]},
+  ethiopian:{cuisine:"Ethiopian", region:"Ethiopia", staples:["berbere spice","onion","garlic","ginger","niter kibbeh (spiced butter)"], starch:"injera flatbread", aliases:["ethiopia"]},
+  nigerian:{cuisine:"Nigerian", region:"West Africa", staples:["onion","tomato","scotch bonnet chili","ginger","palm or vegetable oil"], starch:"rice or fufu", aliases:["nigeria"]},
+  ghanaian:{cuisine:"Ghanaian", region:"West Africa", staples:["onion","tomato","ginger","chili","palm oil"], starch:"rice or fufu", aliases:["ghana"]},
+  senegalese:{cuisine:"Senegalese", region:"West Africa", staples:["onion","garlic","tomato paste","chili","bay leaf"], starch:"rice", aliases:["senegal"]},
+  kenyan:{cuisine:"Kenyan", region:"East Africa", staples:["onion","tomato","garlic","coriander","curry powder"], starch:"maize meal (ugali) or rice", aliases:["kenya"]},
+  southafrican:{cuisine:"South African", region:"Southern Africa", staples:["onion","garlic","curry powder","tomato","bay leaf"], starch:"maize meal (pap) or rice", aliases:["south africa"]},
+  // Europe
+  italian:{cuisine:"Italian", region:"Italy", staples:["olive oil","garlic","tomato","basil","parmesan"], starch:"pasta or bread", aliases:["italy"]},
+  french:{cuisine:"French", region:"France", staples:["butter","shallot","white wine","thyme","garlic"], starch:"bread or potato", aliases:["france"]},
+  greek:{cuisine:"Greek", region:"Greece", staples:["olive oil","lemon","oregano","garlic","feta"], starch:"rice or bread", aliases:["greece"]},
+  spanish:{cuisine:"Spanish", region:"Spain", staples:["olive oil","garlic","smoked paprika","tomato","onion"], starch:"rice or bread", aliases:["spain"]},
+  portuguese:{cuisine:"Portuguese", region:"Portugal", staples:["olive oil","garlic","bay leaf","paprika","onion"], starch:"potato or bread", aliases:["portugal"]},
+  german:{cuisine:"German", region:"Germany", staples:["mustard","onion","caraway","butter","vinegar"], starch:"potato or bread", aliases:["germany"]},
+  polish:{cuisine:"Polish", region:"Poland", staples:["onion","dill","sour cream","butter","marjoram"], starch:"potato or bread", aliases:["poland"]},
+  hungarian:{cuisine:"Hungarian", region:"Hungary", staples:["paprika","onion","garlic","sour cream","lard or oil"], starch:"potato or bread", aliases:["hungary"]},
+  russian:{cuisine:"Russian", region:"Russia", staples:["dill","sour cream","onion","bay leaf","butter"], starch:"potato or bread", aliases:["russia"]},
+  ukrainian:{cuisine:"Ukrainian", region:"Ukraine", staples:["dill","sour cream","onion","garlic","beetroot"], starch:"potato or bread", aliases:["ukraine"]},
+  nordic:{cuisine:"Nordic/Scandinavian", region:"Northern Europe", staples:["dill","butter","allspice","lemon","bay leaf"], starch:"potato or rye bread", aliases:["sweden","norway","denmark","finland","swedish","norwegian","danish"]},
+  dutch:{cuisine:"Dutch", region:"Netherlands", staples:["butter","nutmeg","onion","mustard","bay leaf"], starch:"potato or bread", aliases:["netherlands","holland"]},
+  austrian:{cuisine:"Austrian", region:"Austria", staples:["butter","onion","paprika","caraway","lemon"], starch:"potato or bread", aliases:["austria"]},
+  swiss:{cuisine:"Swiss", region:"Switzerland", staples:["butter","cheese","onion","white wine","nutmeg"], starch:"potato or bread", aliases:["switzerland"]},
+  irish:{cuisine:"Irish", region:"Ireland", staples:["butter","onion","thyme","bay leaf","black pepper"], starch:"potato or bread", aliases:["ireland"]},
+  british:{cuisine:"British", region:"United Kingdom", staples:["butter","onion","thyme","mustard","black pepper"], starch:"potato or bread", aliases:["england","scotland","wales","uk","united kingdom"]},
+  // Americas
+  mexican:{cuisine:"Mexican", region:"Mexico", staples:["corn tortilla","lime","chili","cilantro","onion"], starch:"tortillas or rice", aliases:["mexico"]},
+  american:{cuisine:"American comfort", region:"United States", staples:["butter","onion","black pepper","garlic","paprika"], starch:"potato or bread", aliases:["usa","united states"]},
+  brazilian:{cuisine:"Brazilian", region:"Brazil", staples:["garlic","onion","lime","cilantro","olive oil"], starch:"rice and beans", aliases:["brazil"]},
+  peruvian:{cuisine:"Peruvian", region:"Peru", staples:["lime","chili","garlic","cilantro","red onion"], starch:"rice or potato", aliases:["peru"]},
+  argentine:{cuisine:"Argentine", region:"Argentina", staples:["garlic","parsley","olive oil","chili flakes","oregano"], starch:"bread or potato", aliases:["argentina"]},
+  colombian:{cuisine:"Colombian", region:"Colombia", staples:["onion","garlic","cumin","cilantro","tomato"], starch:"rice or arepas", aliases:["colombia"]},
+  venezuelan:{cuisine:"Venezuelan", region:"Venezuela", staples:["onion","garlic","cumin","cilantro","bell pepper"], starch:"arepas or rice", aliases:["venezuela"]},
+  chilean:{cuisine:"Chilean", region:"Chile", staples:["onion","garlic","cumin","paprika","cilantro"], starch:"potato or bread", aliases:["chile"]},
+  cuban:{cuisine:"Cuban", region:"Cuba", staples:["garlic","cumin","oregano","lime","onion"], starch:"rice and beans", aliases:["cuba"]},
+  caribbean:{cuisine:"Caribbean", region:"Caribbean", staples:["scotch bonnet chili","thyme","garlic","allspice","lime"], starch:"rice and peas", aliases:["jamaica","jamaican","haiti","dominican republic"]},
+};
+function detectCuisine(text, profile){
+  const t = text.toLowerCase();
+  // Check cuisine keys, adjective forms, and country-name aliases together
+  for(const key in CUISINE_PROFILES){
+    const p = CUISINE_PROFILES[key];
+    const candidates = [key, p.cuisine.toLowerCase(), ...(p.aliases||[])];
+    if(candidates.some(c => t.includes(c))) return p;
+  }
+  // Fall back to the user's own saved country, if it maps to a known profile
+  if(profile && profile.country){
+    const pc = profile.country.toLowerCase();
+    for(const key in CUISINE_PROFILES){
+      const p = CUISINE_PROFILES[key];
+      const candidates = [key, p.cuisine.toLowerCase(), ...(p.aliases||[])];
+      if(candidates.some(c => pc.includes(c) || c.includes(pc))) return p;
+    }
+  }
+  // No recognized cuisine/country in the request — this is still a specific
+  // dish, just one we don't have a named regional profile for yet. Build a
+  // generic-but-real profile from the request itself rather than a bland
+  // "Global" placeholder, so the recipe still feels tailored to what was typed.
+  return {cuisine:"Home-style", region:"a tradition not yet in our cuisine directory — built from general technique instead", staples:["onion","garlic","olive oil or a local cooking fat","salt","black pepper"], starch:"rice, bread, or the starch traditional to this dish"};
+}
+
+const BAKE_SUBTYPES = {
+  cake:{keywords:["cake","gateau"], panDefault:"20 cm round pan", ovenDefault:"180°C / 350°F",
+    mix:["Cream the softened butter and sugar together 3–4 minutes until visibly lighter and fluffier — this beats air into the batter that helps the cake rise.",
+         "Beat in the eggs one at a time, mixing well after each so the batter doesn't split.",
+         "Sift the dry ingredients together, then fold them into the batter in three additions, alternating with any liquid, mixing only until just combined."],
+    finish:["Pour into the prepared pan and smooth the top.","Bake until a skewer inserted in the center comes out clean or with a few moist crumbs — check a few minutes before the low end of the time range since ovens vary.","Cool in the pan 10 minutes, then turn out onto a wire rack to cool completely before slicing or frosting."]},
+  cookie:{keywords:["cookie","biscuit"], panDefault:"baking tray", ovenDefault:"180°C / 350°F",
+    mix:["Cream the softened butter and sugar 3–4 minutes until pale and fluffy — this creaming stage is what gives cookies their tender texture.",
+         "Beat in the egg and any flavoring until combined.",
+         "Mix in the dry ingredients on low speed just until no dry streaks remain — overmixing builds gluten and makes cookies tough instead of tender."],
+    finish:["Chill the dough at least 30 minutes so the cookies hold their shape in the oven.","Scoop onto a lined tray, spaced well apart for spread.","Bake until the edges are just turning golden but the centers still look slightly underdone — they firm up as they cool.","Cool on the tray 5 minutes before moving to a wire rack."]},
+  bread:{keywords:["bread","loaf","bun","roll"], panDefault:"loaf pan or baking tray", ovenDefault:"220°C / 425°F",
+    mix:["Mix the flour, salt and yeast (kept apart from direct contact with the salt at first, since salt can slow yeast activity), then stir in the liquid to form a shaggy dough.",
+         "Knead 8–10 minutes by hand (or 5–6 minutes in a stand mixer) until the dough is smooth and elastic — try the windowpane test: stretch a small piece thin; if it stretches translucent without tearing, gluten development is done.",
+         "Place in an oiled bowl, cover, and let rise until roughly doubled — press a finger in; if the dent springs back slowly, it's ready."],
+    finish:["Gently deflate and shape the dough, then let it rise a second time until puffy (this second proof is what gives good texture — don't skip it).","Bake until deep golden and the loaf sounds hollow when tapped on the base.","Cool completely on a wire rack before slicing — cutting too early makes the crumb gummy."]},
+  muffin:{keywords:["muffin","cupcake"], panDefault:"12-cup muffin tin, lined", ovenDefault:"200°C / 400°F",
+    mix:["Whisk the dry ingredients together in one bowl and the wet ingredients in another.",
+         "Pour the wet into the dry and fold together in about 10–12 strokes, just until the flour disappears — the batter should look slightly lumpy. This is the single most important step: overmixing gives tough, tunnel-riddled muffins instead of tender ones."],
+    finish:["Divide the batter evenly between the cups, filling each about three-quarters full.","Bake until the tops are golden and a toothpick comes out clean or with a few moist crumbs.","Cool in the tin 5 minutes, then move to a wire rack."]},
+  pie:{keywords:["pie","tart","quiche"], panDefault:"23 cm pie or tart dish", ovenDefault:"200°C / 400°F, then reduce to 180°C / 350°F",
+    mix:["For the pastry, cut cold butter into the flour and salt until it resembles coarse crumbs with pea-sized butter pieces still visible — those pieces are what create flaky layers.",
+         "Add ice water a tablespoon at a time, mixing minimally, until the dough just holds together. Chill at least 1 hour before rolling."],
+    finish:["Roll out and fit into the dish, add the filling, and top as needed (lattice, full crust, or left open).","Bake at the higher temperature for the first 15–20 minutes to set the crust, then reduce heat and continue baking until the filling is visibly set or bubbling.","Cool at least 1–2 hours before slicing so the filling has time to set."]},
+  flatbread:{keywords:["flatbread","naan","roti","paratha","pita"], panDefault:"dry pan or griddle", ovenDefault:"not usually needed — cooked on the stovetop",
+    mix:["Mix the flour with salt and any leavening, then work in the liquid until a soft, smooth dough forms.","Knead 5–8 minutes until smooth and elastic, then rest, covered, at least 15–20 minutes so the gluten relaxes and the dough is easier to roll."],
+    finish:["Divide and roll each piece thin on a floured surface.","Cook on a hot dry pan or griddle 1–3 minutes per side until puffed and lightly charred in spots.","Serve warm, brushed with a little butter or oil if you like."]}
+};
+function detectBakeSubtype(text){
+  const t = text.toLowerCase();
+  for(const key in BAKE_SUBTYPES){ if(BAKE_SUBTYPES[key].keywords.some(k=>t.includes(k))) return key; }
+  return "cake"; // reasonable default for an unspecified "bake me something"
+}
+
+const METHOD_TEMPLATES = {
+ 
