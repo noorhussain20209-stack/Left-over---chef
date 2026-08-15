@@ -377,4 +377,115 @@ const RECIPE_BASE = [
     difficulty:"Easy", prep:"15 min + chill", cook:"12 min", servings:20, oven:"180°C / 350°F",
     equipment:["Mixing bowl","Hand or stand mixer","Baking tray","Parchment paper","Wire rack"],
     steps:[
-      "Cream the softened butter and sugar together on medium speed for 3–4 minutes, until pale and noticeably fluffier in volume — this creaming stage is what gives cookies the
+      "Cream the softened butter and sugar together on medium speed for 3–4 minutes, until pale and noticeably fluffier in volume — this creaming stage is what gives cookies their tender crumb, so don't rush it.",
+      "Beat in the egg and vanilla until fully incorporated, scraping down the bowl once.",
+      "Whisk the flour, salt and baking powder together separately, then add to the wet mixture in two additions, mixing on low just until no dry streaks remain — overmixing develops gluten and makes cookies tough rather than tender.",
+      "Shape the dough into a disc, wrap, and chill at least 30 minutes; this firms the butter so cookies hold their shape and don't spread too thin in the oven.",
+      "Preheat the oven to 180°C (350°F) and line a tray with parchment.",
+      "Roll or scoop the dough into balls (about 25 g each), spacing them 4 cm apart to allow for spread.",
+      "Bake 10–12 minutes, until the edges are just turning golden but the centers still look slightly underdone — they'll firm up as they cool.",
+      "Cool on the tray 5 minutes (they're fragile straight from the oven), then move to a wire rack to cool completely."
+    ],
+    subs:["No baking powder? The cookies will spread a little flatter and be slightly denser, but will still work fine."],
+    storage:"Store in an airtight container at room temperature up to 1 week, or freeze unbaked dough discs up to 3 months.",
+    foodSafety:["Don't eat raw cookie dough — it contains raw egg and unbaked flour, both of which can carry harmful bacteria."]},
+
+  {title:"Fluffy Blueberry Muffins", cuisine:"Classic bake", tags:["breakfast","baking","dessert"], dietFlags:["vegetarian"],
+    ing:[{n:"flour",a:"280 g"},{n:"sugar",a:"150 g"},{n:"baking powder",a:"2.5 tsp"},{n:"salt",a:"1/2 tsp"},{n:"egg",a:"2 large"},{n:"milk",a:"180 ml"},{n:"butter",a:"100 g, melted and cooled"},{n:"blueberries",a:"1.5 cups, fresh or frozen"}],
+    difficulty:"Easy", prep:"10 min", cook:"20 min", servings:12, oven:"200°C / 400°F", pan:"12-cup muffin tin, lined",
+    equipment:["Two mixing bowls","Muffin tin","Paper liners","Ice-cream scoop or large spoon"],
+    steps:[
+      "Preheat the oven to 200°C (400°F) and line a 12-cup muffin tin with paper liners.",
+      "In one bowl, whisk together the flour, sugar, baking powder and salt.",
+      "In a separate bowl, whisk the eggs, milk and cooled melted butter until combined.",
+      "Pour the wet ingredients into the dry and fold together with a spatula in about 10–12 strokes, just until the flour disappears — the batter should look slightly lumpy. This is the key step: overmixing muffin batter builds gluten and gives you tough, tunnel-riddled muffins instead of tender ones.",
+      "Gently fold in the blueberries (toss frozen berries in a spoon of flour first so they don't sink).",
+      "Divide the batter evenly between the muffin cups, filling each about three-quarters full.",
+      "Bake 18–20 minutes, until the tops are golden and a toothpick inserted in the center comes out clean or with a few moist crumbs.",
+      "Cool in the tin 5 minutes, then transfer to a wire rack."
+    ],
+    subs:["No fresh blueberries? Frozen work well and don't need thawing — just add a minute or two to the bake time."],
+    storage:"Store airtight at room temperature up to 3 days, or freeze up to 2 months.",
+    foodSafety:[]},
+
+  {title:"Classic Apple Pie", cuisine:"Classic bake", tags:["dessert","baking","pie"], dietFlags:["vegetarian"],
+    ing:[{n:"flour",a:"300 g, for the crust"},{n:"butter",a:"225 g, cold and cubed"},{n:"salt",a:"1 tsp"},{n:"ice water",a:"6–8 tbsp"},{n:"apples",a:"6 medium, peeled and sliced"},{n:"sugar",a:"100 g"},{n:"cinnamon",a:"1 tsp",opt:true},{n:"lemon",a:"1, juiced",opt:true}],
+    difficulty:"Hard", prep:"40 min + chill", cook:"50 min", servings:8, oven:"200°C / 400°F, then 180°C / 350°F", pan:"23 cm pie dish",
+    equipment:["Food processor or pastry cutter","Rolling pin","23 cm pie dish","Mixing bowl"],
+    steps:[
+      "Make the pastry: pulse the flour and salt, then add the cold cubed butter and pulse until the mixture looks like coarse crumbs with some pea-sized butter pieces still visible — those butter pieces are what create flaky layers, so don't overwork it.",
+      "Add ice water one tablespoon at a time, pulsing briefly, until the dough just holds together when pinched. Divide in two, flatten into discs, wrap and chill at least 1 hour.",
+      "Toss the sliced apples with sugar, cinnamon and lemon juice; let sit 10 minutes so they release some juice.",
+      "Preheat the oven to 200°C (400°F). Roll out one dough disc on a floured surface and fit it into the pie dish, trimming the overhang to about 1.5 cm.",
+      "Fill with the apple mixture, mounding it slightly in the center.",
+      "Roll out the second disc and place over the filling (or cut into strips for a lattice); trim, fold the edges under, and crimp to seal.",
+      "Cut a few steam vents in the top crust if using a solid lid, and brush with milk or beaten egg for color.",
+      "Bake 20 minutes at 200°C (400°F), then reduce to 180°C (350°F) and bake a further 30 minutes, until the crust is deep golden and the filling is visibly bubbling through the vents.",
+      "Cool at least 2 hours before slicing — cutting too early means the filling runs out, since it needs time to set."
+    ],
+    subs:["Short on time for pastry? A store-bought pie crust works, though the texture won't be quite as flaky."],
+    storage:"Keeps covered at room temperature 1 day, or refrigerated up to 4 days. Freezes well, baked or unbaked.",
+    foodSafety:[]}
+];
+
+/* ---------------- ALLERGEN KEYWORD MAP (safety layer) ---------------- */
+const ALLERGEN_KEYWORDS = {
+  "Peanuts":["peanut"], "Tree nuts":["almond","cashew","walnut","pistachio","hazelnut","nut"],
+  "Milk":["milk","cream","butter","cheese","yogurt"], "Eggs":["egg"], "Wheat":["flour","bread","pasta","noodles","wheat"],
+  "Soy":["soy","tofu"], "Fish":["fish","salmon","tuna","anchovy"], "Shellfish":["shrimp","prawn","crab","lobster","shellfish"],
+  "Sesame":["sesame","tahini"]
+};
+/* Ingredients that make a dish NOT fit a given diet preference, even if dietFlags doesn't list it */
+const DIET_EXCLUDES = {
+  "Vegetarian":["chicken","beef","pork","fish","shrimp","bacon","meat"],
+  "Vegan":["chicken","beef","pork","fish","shrimp","bacon","meat","egg","milk","cream","butter","cheese","yogurt","honey"],
+  "Dairy-free":["milk","cream","butter","cheese","yogurt"],
+  "Gluten-free":["flour","bread","pasta","noodles","wheat","soy sauce"],
+  "Nut-free":["almond","cashew","walnut","pistachio","hazelnut","peanut"]
+};
+
+/* =========================================================================
+   COMPOSE ENGINE — builds a full, detailed recipe for basically any dish or
+   cuisine typed in, not just the curated RECIPE_BASE list above. This is
+   what powers "search any dish" in Explore and open-ended requests in Cook
+   that don't match a curated recipe closely. It works by detecting a
+   cooking method (bake/stew/stir-fry/etc.) and a cuisine profile from the
+   request text, then filling in a technique-accurate step template —
+   the same approach a real backend LLM call would replace (see AI_ENGINE
+   note below), kept local here so the app needs no server or API key.
+   ========================================================================= */
+const CUISINE_PROFILES = {
+  // South Asia
+  indian:{cuisine:"Indian", region:"South Asia", staples:["ginger","garlic","cumin","turmeric","garam masala"], starch:"rice or flatbread", aliases:["india"]},
+  pakistani:{cuisine:"Pakistani", region:"South Asia", staples:["ginger","garlic","cumin","garam masala","yogurt"], starch:"rice or flatbread", aliases:["pakistan"]},
+  bangladeshi:{cuisine:"Bangladeshi", region:"South Asia", staples:["mustard oil","panch phoron (five-spice)","garlic","ginger","turmeric"], starch:"rice", aliases:["bangladesh"]},
+  srilankan:{cuisine:"Sri Lankan", region:"South Asia", staples:["coconut milk","curry leaves","mustard seed","chili","turmeric"], starch:"rice or hoppers", aliases:["sri lanka","srilanka"]},
+  nepali:{cuisine:"Nepali", region:"South Asia", staples:["cumin","coriander seed","garlic","ginger","mustard oil"], starch:"rice or flatbread", aliases:["nepal"]},
+  afghan:{cuisine:"Afghan", region:"Central/South Asia", staples:["cumin","coriander","yogurt","dried fruit","garlic"], starch:"rice or naan", aliases:["afghanistan"]},
+  // East Asia
+  chinese:{cuisine:"Chinese", region:"China", staples:["soy sauce","ginger","garlic","spring onion","sesame oil"], starch:"rice or noodles", aliases:["china"]},
+  japanese:{cuisine:"Japanese", region:"Japan", staples:["soy sauce","mirin","ginger","sesame oil","rice vinegar"], starch:"rice or noodles", aliases:["japan"]},
+  korean:{cuisine:"Korean", region:"Korea", staples:["soy sauce","sesame oil","garlic","gochujang","spring onion"], starch:"rice", aliases:["korea"]},
+  mongolian:{cuisine:"Mongolian", region:"Mongolia", staples:["onion","black pepper","garlic","cumin","mutton or beef"], starch:"noodles or flatbread", aliases:["mongolia"]},
+  tibetan:{cuisine:"Tibetan", region:"Tibet", staples:["yak butter or butter","barley","garlic","chili","ginger"], starch:"barley or noodles", aliases:["tibet"]},
+  // Southeast Asia
+  thai:{cuisine:"Thai", region:"Thailand", staples:["fish sauce","lime","chili","garlic","coriander"], starch:"rice or rice noodles", aliases:["thailand"]},
+  vietnamese:{cuisine:"Vietnamese", region:"Vietnam", staples:["fish sauce","lime","chili","mint","garlic"], starch:"rice noodles", aliases:["vietnam"]},
+  filipino:{cuisine:"Filipino", region:"Philippines", staples:["soy sauce","vinegar","garlic","bay leaf","black pepper"], starch:"rice", aliases:["philippines"]},
+  indonesian:{cuisine:"Indonesian", region:"Indonesia", staples:["shallot","garlic","chili","palm sugar","coconut milk"], starch:"rice", aliases:["indonesia"]},
+  malaysian:{cuisine:"Malaysian", region:"Malaysia", staples:["shallot","garlic","chili","lemongrass","coconut milk"], starch:"rice or noodles", aliases:["malaysia"]},
+  singaporean:{cuisine:"Singaporean", region:"Singapore", staples:["garlic","chili","soy sauce","shallot","ginger"], starch:"rice or noodles", aliases:["singapore"]},
+  burmese:{cuisine:"Burmese", region:"Myanmar", staples:["turmeric","garlic","ginger","fish sauce","tamarind"], starch:"rice or noodles", aliases:["myanmar","burma"]},
+  // Middle East
+  lebanese:{cuisine:"Lebanese", region:"Levant", staples:["olive oil","lemon","garlic","parsley","sumac"], starch:"rice or flatbread", aliases:["lebanon"]},
+  turkish:{cuisine:"Turkish", region:"Turkey", staples:["olive oil","yogurt","garlic","paprika","mint"], starch:"rice or bread", aliases:["turkey"]},
+  persian:{cuisine:"Persian", region:"Iran", staples:["saffron","dried lime","turmeric","onion","fresh herbs"], starch:"rice", aliases:["iran","iranian"]},
+  iraqi:{cuisine:"Iraqi", region:"Iraq", staples:["cumin","cardamom","garlic","tomato","dried lime"], starch:"rice or flatbread", aliases:["iraq"]},
+  israeli:{cuisine:"Israeli", region:"Israel", staples:["olive oil","lemon","tahini","za'atar","garlic"], starch:"rice or flatbread", aliases:["israel"]},
+  syrian:{cuisine:"Syrian", region:"Levant", staples:["olive oil","allspice","garlic","pomegranate molasses","pine nuts"], starch:"rice or flatbread", aliases:["syria"]},
+  jordanian:{cuisine:"Jordanian", region:"Levant", staples:["olive oil","yogurt","cumin","garlic","allspice"], starch:"rice", aliases:["jordan"]},
+  saudi:{cuisine:"Saudi Arabian", region:"Arabian Peninsula", staples:["cardamom","cumin","saffron","garlic","dried lime"], starch:"rice", aliases:["saudi arabia"]},
+  // Africa
+  moroccan:{cuisine:"Moroccan", region:"Morocco", staples:["cumin","cinnamon","preserved lemon","olive oil","onion"], starch:"couscous", aliases:["morocco"]},
+  tunisian:{cuisine:"Tunisian", region:"Tunisia", staples:["harissa","caraway","garlic","olive oil","coriander"], starch:"couscous", aliases:["tunisia"]},
+  algerian:{cuisine:"Algerian", region:"Algeria", staples:["cumin","paprika","garlic","olive oil","coriander"], starch:"couscous or bread", alia
