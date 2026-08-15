@@ -191,4 +191,108 @@ img{max-width:100%;display:block;}
 /* =========================================================================
    LEFTOVER CHEF — single-file reference build
    -------------------------------------------------------------------------
-   This is a fully working front-end (state
+   This is a fully working front-end (state, routing, persistence, the full
+   onboarding→home→cook→explore→favorites→settings flow, a working AI recipe
+   engine, a working camera flow, allergy/safety checks, shopping list,
+   cooking mode, dark mode).
+
+   TWO THINGS ARE STRUCTURALLY MOCKED because they cannot exist safely inside
+   a single client-side file, and are clearly marked below:
+   1) AI_ENGINE.generate() — calls a local recipe-composition engine instead
+      of a hosted LLM, because a real call requires a server that holds the
+      API key (never ship a secret key in client code — see AI_ENGINE comment
+      for the exact drop-in replacement).
+   2) CAMERA.recognize() — takes a real photo from the device camera, but
+      "identifying" ingredients from it needs a vision model behind that same
+      server. It's wired to call AI_ENGINE.recognizeFromImage(), which you
+      swap for a real endpoint the same way.
+   Every other feature (onboarding, preferences, allergies, ingredient list,
+   recipe generation from what you actually have, cooking mode, favorites,
+   shopping list, settings, dark mode) is fully functional right now.
+   ========================================================================= */
+
+/* ---------------- STATE / PERSISTENCE ---------------- */
+const DB_KEY = "leftoverchef_state_v1";
+const defaultState = {
+  onboarded:false,
+  onboardStep:0,
+  profile:{ name:"Chef", country:"", region:"", diets:[], allergies:[], skill:"Beginner", notifPermission:"unknown", cameraPermission:"unknown" },
+  theme:"light",
+  ingredients:[], // [{name, qty, unit, expiry}]
+  favorites:[],   // recipe objects
+  shoppingList:[], // [{name, amount, checked, forRecipe}]
+  history:[],     // recently cooked
+  route:"home",
+  lastRecipes:[]
+};
+let state = load();
+function load(){
+  try{ const raw = localStorage.getItem(DB_KEY); return raw ? {...defaultState, ...JSON.parse(raw)} : structuredClone(defaultState); }
+  catch(e){ return structuredClone(defaultState); }
+}
+function save(){ try{ localStorage.setItem(DB_KEY, JSON.stringify(state)); }catch(e){ console.warn("save failed", e); } }
+function setState(patch){ state = {...state, ...patch}; save(); render(); }
+
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove("show"), 2200);
+}
+
+/* ---------------- COUNTRY DATA (abridged global list) ---------------- */
+const COUNTRIES = ["Afghanistan","Algeria","Argentina","Australia","Austria","Bangladesh","Belgium","Brazil","Canada","Chile","China","Colombia","Egypt","Ethiopia","France","Germany","Ghana","Greece","India","Indonesia","Iran","Iraq","Ireland","Italy","Japan","Jordan","Kenya","South Korea","Lebanon","Malaysia","Mexico","Morocco","Netherlands","New Zealand","Nigeria","Pakistan","Peru","Philippines","Poland","Portugal","Russia","Saudi Arabia","Singapore","South Africa","Spain","Sri Lanka","Sweden","Switzerland","Thailand","Turkey","Ukraine","United Arab Emirates","United Kingdom","United States","Vietnam"];
+
+/* ---------------- DIET / ALLERGY OPTIONS ---------------- */
+const DIETS = ["Vegetarian","Vegan","Halal","Gluten-free","Dairy-free","Nut-free","Low-spice","Spicy","No preference"];
+const COMMON_ALLERGENS = ["Peanuts","Tree nuts","Milk","Eggs","Wheat","Soy","Fish","Shellfish","Sesame"];
+
+/* ---------------- RECIPE KNOWLEDGE BASE (engine's raw material) ----------------
+   Each ingredient is {n:name, a:amount-for-base-servings, opt:boolean}.
+   dietFlags marks what the dish IS (used to include/exclude by preference).
+   equipment/storage/foodSafety back the "correct and detailed" recipe view. */
+const RECIPE_BASE = [
+  {title:"Creamy Tomato Pasta", cuisine:"Italian-inspired (Italy)", tags:["quick","dinner","pasta"], dietFlags:["vegetarian"],
+    ing:[{n:"pasta",a:"200 g"},{n:"tomato",a:"3 medium, chopped"},{n:"garlic",a:"2 cloves, minced"},{n:"olive oil",a:"2 tbsp"},{n:"cream",a:"100 ml"},{n:"basil",a:"a handful, torn",opt:true},{n:"parmesan",a:"30 g, grated",opt:true},{n:"chili flakes",a:"1/4 tsp",opt:true}],
+    difficulty:"Easy", prep:"10 min", cook:"20 min", servings:2, equipment:["Large pot","Wide sauté pan","Colander"],
+    steps:["Bring a large pot of salted water to a boil and cook the pasta until al dente, about 9–11 minutes.","Meanwhile, warm the olive oil in a wide pan over medium heat and sauté the garlic 30–60 seconds until fragrant, not browned.","Add the chopped tomato and a pinch of salt; simmer 8 minutes, mashing lightly, until it breaks down into a sauce.","Stir in the cream and simmer 2 minutes; taste and adjust salt.","Drain the pasta, reserving a splash of pasta water, then toss it through the sauce, loosening with pasta water if needed.","Finish with torn basil, parmesan and chili flakes if using."],
+    subs:["No cream? Whisk 1 tsp flour into 100 ml full-fat milk and simmer until it thickens slightly.","No fresh tomato? 400 g canned crushed tomato works and needs less simmering time."],
+    storage:"Keeps in an airtight container in the fridge for up to 3 days. Reheat gently with a splash of water or milk to loosen the sauce.",
+    foodSafety:["Reheat leftovers until steaming hot all the way through before eating."]},
+
+  {title:"Leftover Rice Stir-Fry", cuisine:"East Asian-inspired", tags:["leftover","quick","dinner"], dietFlags:[],
+    ing:[{n:"rice",a:"2 cups, cooked and cooled"},{n:"egg",a:"2 large"},{n:"soy sauce",a:"2 tbsp"},{n:"garlic",a:"2 cloves, minced"},{n:"spring onion",a:"2, sliced",opt:true},{n:"carrot",a:"1, diced",opt:true},{n:"peas",a:"1/2 cup",opt:true},{n:"chicken",a:"150 g, cooked and diced",opt:true}],
+    difficulty:"Easy", prep:"5 min", cook:"10 min", servings:2, equipment:["Wok or wide frying pan","Spatula"],
+    steps:["Heat 1 tbsp oil in a wok or wide pan over high heat until shimmering.","Pour in the beaten egg, scramble lightly until just set, then remove and set aside.","Add a little more oil, then the garlic and any raw vegetables; stir-fry 2 minutes.","Add the cold rice, breaking up clumps with the spatula, and stir-fry 3–4 minutes until heated through and slightly crisp in places.","Return the egg (and any cooked chicken), add the soy sauce, toss everything together and serve hot."],
+    subs:["No soy sauce? A pinch of salt plus a small splash of vinegar gives a similar savory-sour lift."],
+    storage:"Best eaten fresh. If storing, cool quickly and refrigerate within 1 hour; use within 1 day, since reheated rice carries higher food-safety risk if cooled slowly.",
+    foodSafety:["Cooked rice that's been left at room temperature for more than 2 hours should be discarded rather than reused.","Reheat until piping hot throughout, not just warmed."]},
+
+  {title:"Potato & Onion Stuffed Flatbread", cuisine:"South Asian-inspired (North India / Pakistan region)", tags:["budget","5-ingredients","bread"], dietFlags:["vegetarian","vegan"],
+    ing:[{n:"potato",a:"3 medium, boiled"},{n:"flour",a:"2 cups"},{n:"onion",a:"1 small, finely chopped"},{n:"salt",a:"1 tsp, divided"},{n:"chili",a:"1, finely chopped",opt:true},{n:"cumin",a:"1/2 tsp",opt:true},{n:"coriander leaves",a:"a small handful, chopped",opt:true}],
+    difficulty:"Medium", prep:"20 min", cook:"20 min", servings:4, equipment:["Mixing bowl","Rolling pin","Flat griddle or heavy pan"],
+    steps:["Mash the boiled potatoes with the onion, half the salt, chili, cumin and coriander leaves.","Knead the flour with the remaining salt and enough water to form a soft, smooth dough; rest 10 minutes.","Divide the dough into 4 balls; flatten each, place a portion of potato filling in the center, and gather the edges to seal.","Roll each stuffed ball out gently into a flatbread about 15 cm across, being careful not to tear it.","Cook on a hot dry griddle 2–3 minutes per side until browned in spots, pressing lightly with a spatula so it cooks evenly.","Brush lightly with oil or ghee and serve warm."],
+    subs:["No fresh chili? A pinch of chili powder mixed into the filling works just as well."],
+    storage:"Wrap and refrigerate for up to 2 days; reheat on a dry pan. Not recommended for freezing as the texture suffers.",
+    foodSafety:[]},
+
+  {title:"Simple Chocolate Cake", cuisine:"Classic bake", tags:["dessert","cakes","baking"], dietFlags:["vegetarian"],
+    ing:[{n:"flour",a:"200 g"},{n:"sugar",a:"180 g"},{n:"cocoa powder",a:"40 g"},{n:"egg",a:"2 large"},{n:"butter",a:"115 g, softened"},{n:"milk",a:"120 ml"},{n:"baking powder",a:"1.5 tsp",opt:true},{n:"vanilla",a:"1 tsp",opt:true}],
+    difficulty:"Medium", prep:"15 min", cook:"30 min", servings:8, oven:"180°C / 350°F (preheat before starting)", pan:"20 cm round cake pan, greased and lined",
+    equipment:["Mixing bowl","Hand or stand mixer","20 cm round pan","Wire rack","Skewer or toothpick"],
+    steps:["Preheat the oven to 180°C (350°F) and grease and line a 20 cm round pan.","Cream the softened butter and sugar together 3–4 minutes until visibly lighter and fluffy.","Beat in the eggs one at a time, mixing well after each, then stir in the vanilla.","Sift together the flour, cocoa powder and baking powder; fold into the butter mixture in three additions, alternating with the milk, until just combined — do not overmix.","Pour the batter into the prepared pan and smooth the top.","Bake 28–32 minutes, until a skewer inserted in the center comes out clean or with a few moist crumbs.","Cool in the pan 10 minutes, then turn out onto a wire rack to cool completely before slicing or frosting."],
+    subs:["No butter? Use a neutral oil at about 80% of the butter weight (e.g. 90 ml oil for 115 g butter)."],
+    storage:"Store covered at room temperature up to 3 days, or refrigerate up to a week if frosted with dairy. Freezes well, unfrosted, for up to 2 months.",
+    foodSafety:["Cake containing raw batter should not be tasted before baking due to raw egg and flour."]},
+
+  {title:"No-Knead Everyday Bread", cuisine:"Classic bake", tags:["bread","baking","budget"], dietFlags:["vegetarian","vegan"],
+    ing:[{n:"flour",a:"450 g, bread or all-purpose"},{n:"water",a:"350 ml, room temperature"},{n:"yeast",a:"1/2 tsp instant"},{n:"salt",a:"2 tsp"},{n:"olive oil",a:"1 tbsp",opt:true},{n:"seeds",a:"2 tbsp, for topping",opt:true}],
+    difficulty:"Easy", prep:"10 min + rise", cook:"35 min", servings:6, oven:"230°C / 450°F, with a covered pot inside while preheating",
+    equipment:["Large mixing bowl","Dutch oven or heavy covered pot","Wire rack"],
+    steps:["Mix the flour, salt and yeast in a large bowl, then stir in the water until you get a shaggy, sticky dough — no kneading needed.","Cover the bowl and let it rise at room temperature for 8–12 hours (or about 2 hours somewhere warm), until doubled and bubbly.","About 30 minutes before baking, place your covered pot in the oven and preheat to 230°C (450°F).","Turn the dough onto a floured surface and shape it gently into a round, being careful not to knock out too much air.","Carefully drop the dough into the hot pot, cover, and bake 25 minutes.","Uncover and bake a further 10 minutes until deep golden brown; the loaf should sound hollow when tapped on the base.","Cool completely on a wire rack before slicing — cutting too early makes it gummy."],
+    subs:["No dutch oven? Bake on a preheated tray with a shallow pan of hot water on the oven floor to mimic the steam."],
+    storage:"Best eaten within 2–3 days, kept cut-side down at room temperature. Freezes well sliced, up to 3 months.",
+    foodSafety:[]},
+
+  {title:"Chickpea & Vegetable Curry", cuisine:"South Asian-inspired", tags:["dinner","budget","healthy"], dietFlags:["vegetarian","vegan","gluten-free"],
+    ing:[{n:"chickpeas",a:"400 g can, drained (or 1.5 cups cooked)"},{n:"onion",a:"1 large, diced"},{n:"tomato",a:"2 medium, chopped"},{n:"garlic",a:"3 cloves, minced"},{n:"ginger",a:"1 tsp, grated"},{n:"spinach",a:"2 cups, roughly chopped",opt:true},{n:"coconut milk",a:"200 ml",opt:true},{n:"garam masala",a:"1 tsp",opt:true}],
+    diffic
