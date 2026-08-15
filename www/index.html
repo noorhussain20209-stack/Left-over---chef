@@ -584,4 +584,164 @@ function detectBakeSubtype(text){
 }
 
 const METHOD_TEMPLATES = {
- 
+  stew:{label:"stew/curry", steps:(c)=>[
+    `Warm oil in a heavy pot over medium heat; sauté onion until soft and golden, about 6–7 minutes.`,
+    `Add garlic and any aromatics (like ${c.staples[1]||"ginger"}) and cook 1 minute until fragrant.`,
+    `Stir in the spices and cook 30–60 seconds to toast them, which brings out more flavor than adding them raw.`,
+    `Add the main ingredient and enough liquid to mostly cover it; bring to a boil, then reduce to a gentle simmer.`,
+    `Simmer uncovered, stirring occasionally, until everything is tender and the sauce has thickened to your liking.`,
+    `Taste and adjust seasoning, then finish with a squeeze of acid (lemon or lime) if it tastes flat.`,
+    `Serve hot over ${c.starch}.`]},
+  stirfry:{label:"stir-fry", steps:(c)=>[
+    `Have everything prepped and within reach before you start — stir-frying moves fast.`,
+    `Heat oil in a wok or wide pan over high heat until just starting to shimmer.`,
+    `Add aromatics (garlic, ginger, or spring onion) and stir-fry 20–30 seconds until fragrant, not browned.`,
+    `Add the main ingredients in order of cook time — proteins first if raw, then firmer vegetables, then quick-cooking ones.`,
+    `Keep everything moving in the pan; stir-fry 4–6 minutes total until just cooked through and still vibrant.`,
+    `Add the sauce, toss to coat evenly, and cook 1 more minute until glossy.`,
+    `Serve immediately over ${c.starch}.`]},
+  soup:{label:"soup", steps:(c)=>[
+    `Sauté the base vegetables (onion, garlic, and any others) in a little oil until softened, 5–6 minutes.`,
+    `Add the main ingredients and stock or water to cover.`,
+    `Bring to a boil, then reduce to a simmer and cook until everything is tender, 20–30 minutes depending on the ingredients.`,
+    `Season to taste; blend partially or fully for a smoother soup if you like.`,
+    `Finish with a fresh element — herbs, a squeeze of citrus, or a swirl of cream — right before serving.`]},
+  grill:{label:"grill/roast", steps:(c)=>[
+    `Marinate or season the main ingredient at least 20–30 minutes ahead (longer for tougher cuts), using ${c.staples.slice(0,3).join(", ")}.`,
+    `Preheat a grill pan, outdoor grill, or oven to high heat.`,
+    `Cook, turning once, until well-browned on the outside and cooked through — for meat, check with a thermometer rather than guessing by time.`,
+    `Let it rest a few minutes before slicing so the juices redistribute instead of running out.`,
+    `Serve with ${c.starch} and a fresh side.`]},
+  ricedish:{label:"rice dish", steps:(c)=>[
+    `Sauté the aromatics in oil until fragrant, 2–3 minutes.`,
+    `Add the rice and toast it in the fat for a minute or two — this step, often skipped, helps keep the grains separate rather than mushy.`,
+    `Add the main ingredients and stock in the right ratio for your rice (check the package, but 1 part rice to about 1.5–2 parts liquid is typical).`,
+    `Bring to a boil, then cover and reduce to the lowest simmer; cook undisturbed until the liquid is absorbed.`,
+    `Rest off the heat, covered, 5–10 minutes before fluffing with a fork and serving.`]},
+  noodle:{label:"noodle dish", steps:(c)=>[
+    `Cook the noodles in well-salted boiling water according to the package time, until just tender.`,
+    `Meanwhile, build the sauce or broth base with the aromatics and seasonings.`,
+    `Drain the noodles (reserving a little cooking water) and toss them through the sauce, loosening with the reserved water if needed.`,
+    `Add any protein or vegetables and toss to combine.`,
+    `Serve immediately, garnished with fresh herbs if you have them.`]},
+  dumpling:{label:"dumpling/wrapped dish", steps:(c)=>[
+    `Make the filling by combining the main ingredients with the aromatics and seasoning; mix until well combined.`,
+    `Place a small spoonful of filling in the center of each wrapper.`,
+    `Moisten the edges with a little water, fold, and press firmly to seal, pushing out any trapped air.`,
+    `Cook by steaming, boiling, or pan-frying (pan-fry first for a crisp base, then add a splash of water and cover to steam through) until the wrapper is cooked and the filling is hot through the center.`,
+    `Serve with a dipping sauce.`]},
+  salad:{label:"salad", steps:(c)=>[
+    `Prepare all the vegetables and any protein, keeping textures varied — some crisp, some soft.`,
+    `Whisk together a simple dressing using ${c.staples[0]||"olive oil"} and an acid like lemon or vinegar, about a 3:1 ratio of oil to acid.`,
+    `Toss everything together with the dressing just before serving, so the leaves don't wilt from sitting.`,
+    `Taste and adjust salt and acid — salads usually need more seasoning than you'd expect.`]},
+  dessertnobake:{label:"no-bake dessert", steps:(c)=>[
+    `Combine the base ingredients and mix or whisk until well combined and smooth.`,
+    `Fold in any airy elements (like whipped cream) gently, to keep the mixture light rather than deflating it.`,
+    `Transfer to serving dishes or a lined pan.`,
+    `Chill until set — usually at least 2–4 hours, or overnight for a firmer set.`,
+    `Serve cold, straight from the fridge.`]},
+  stovetop:{label:"general stovetop dish", steps:(c)=>[
+    `Warm oil in a pan over medium heat; sauté the aromatics until fragrant, 2–3 minutes.`,
+    `Add the main ingredients and cook, stirring occasionally, until they're tender and cooked through.`,
+    `Season with ${c.staples.slice(0,2).join(" and ")}, tasting as you go.`,
+    `Finish with a fresh element — herbs, citrus, or a drizzle of good oil — right before serving.`]}
+};
+function detectMethod(text){
+  const t = text.toLowerCase();
+  if(/(cake|cookie|biscuit|bread|loaf|muffin|cupcake|pie|tart|quiche|naan|roti|paratha|pita|flatbread|brownie|pastry|bake|baking)/.test(t)) return "bake";
+  if(/(curry|stew|tagine|braise)/.test(t)) return "stew";
+  if(/(stir.?fry|wok)/.test(t)) return "stirfry";
+  if(/(soup|broth|bisque)/.test(t)) return "soup";
+  if(/(grill|kebab|bbq|barbecue|roast|steak)/.test(t)) return "grill";
+  if(/(rice|pilaf|biryani|paella|risotto|jollof)/.test(t)) return "ricedish";
+  if(/(noodle|pasta|ramen|pho|spaghetti)/.test(t)) return "noodle";
+  if(/(dumpling|momo|gyoza|pierogi|wonton|samosa)/.test(t)) return "dumpling";
+  if(/(salad|slaw)/.test(t)) return "salad";
+  if(/(pudding|mousse|ice cream|no.?bake|parfait)/.test(t)) return "dessertnobake";
+  return "stovetop";
+}
+
+/** Composes a full recipe for an arbitrary dish name/request when nothing in
+ *  RECIPE_BASE is a close match. Clearly marked as AI-composed in the UI. */
+function composeRecipe(dishNameRaw, have, profile){
+  const dishName = (dishNameRaw||"a dish").trim();
+  const searchText = dishName;
+  const cuisineProfile = detectCuisine(searchText, profile);
+  const method = detectMethod(searchText);
+  const title = dishName.length>3 ? capitalize(dishName) : `${cuisineProfile.cuisine} Dish`;
+
+  let steps, ingredients, oven=null, pan=null, equipment=[], prep="15 min", cook="25 min", difficulty="Medium";
+
+  if(method === "bake"){
+    const subtype = detectBakeSubtype(searchText);
+    const b = BAKE_SUBTYPES[subtype];
+    oven = b.ovenDefault; pan = b.panDefault;
+    equipment = ["Mixing bowl","Measuring cups/spoons", subtype==="bread"||subtype==="flatbread" ? "Work surface for kneading":"Hand or stand mixer", pan];
+    steps = [`Preheat the oven to ${oven}${subtype==="flatbread"?" (or skip — this is cooked on the stovetop)":""} and prepare your ${pan}.`, ...b.mix, ...b.finish];
+    ingredients = [
+      {n:"flour",a:"a base of 250–350 g depending on batch size"},
+      {n:"sugar",a: subtype==="bread"||subtype==="flatbread" ? "a pinch, if the recipe calls for it" : "150–180 g", opt: subtype==="bread"||subtype==="flatbread"},
+      {n: subtype==="bread"||subtype==="flatbread" ? "yeast or another leavening" : "baking powder or baking soda", a:"as needed for the leavening this bake type uses"},
+      {n:"salt", a:"1/2–1 tsp"},
+      {n:"egg", a:"1–2 large", opt: subtype==="bread"||subtype==="flatbread"},
+      {n: subtype==="bread"||subtype==="flatbread" ? "water" : "milk", a:"as needed to bring the mixture together"},
+      {n:"butter or oil", a:"as the recipe's fat component"}
+    ];
+    prep = subtype==="bread" ? "20 min + rise" : "15 min"; cook = "20–30 min"; difficulty = subtype==="pie"||subtype==="bread" ? "Hard":"Medium";
+  } else {
+    const m = METHOD_TEMPLATES[method];
+    steps = m.steps(cuisineProfile);
+    ingredients = [
+      ...cuisineProfile.staples.map((s,i)=>({n:s, a:i<2?"to taste":"a small amount", opt:i>=2})),
+      {n:capitalize(dishName)+" (main ingredient)", a:"to taste — use what you have on hand"},
+      {n:cuisineProfile.starch.split(" or ")[0], a:"to serve", opt:true}
+    ];
+    equipment = method==="bake" ? [] : method==="soup"||method==="stew" ? ["Large pot"] : method==="stirfry" ? ["Wok or wide pan"] : ["Pan or pot"];
+    difficulty = "Medium";
+  }
+
+  const ingObjs = ingredients.map(i=>({
+    name:i.n, amount:i.a, optional: !!i.opt,
+    have: have.some(h => i.n.toLowerCase().includes(h) || h.includes(i.n.toLowerCase()))
+  }));
+  const haveCount = ingObjs.filter(i=>i.have).length;
+  const pct = have.length ? Math.max(20, Math.min(70, Math.round((haveCount/ingObjs.length)*100)+15)) : 30;
+
+  const allergyHits = (profile.allergies||[]).filter(a =>
+    (ALLERGEN_KEYWORDS[a]||[a.toLowerCase()]).some(kw => ingObjs.some(i=>i.name.toLowerCase().includes(kw)))
+  );
+  const safetyNotes = [];
+  if(allergyHits.length) safetyNotes.push(`May conflict with your saved allergy/avoidance: ${allergyHits.join(", ")}. Check carefully before cooking.`);
+  safetyNotes.push(`This recipe was composed by the app's recipe engine for "${dishName}" based on common ${cuisineProfile.cuisine} techniques, rather than pulled from a single verified source — cross-check quantities and technique against a trusted recipe if this dish has a traditional method you want to match exactly.`);
+
+  return {
+    title, description:`An AI-composed ${cuisineProfile.cuisine} recipe idea for ${dishName}, built from common ${METHOD_TEMPLATES[method]?METHOD_TEMPLATES[method].label:"baking"} technique.`,
+    cuisine:`${cuisineProfile.cuisine}-inspired (${cuisineProfile.region})`, prepTime:prep, cookTime:cook, servings:4, difficulty,
+    oven, pan, equipment, ingredients:ingObjs, steps, substitutions:[], storage:"Storage varies by dish — refrigerate leftovers within 2 hours and use within 3–4 days as a general rule.",
+    missing: ingObjs.filter(i=>!i.have && !i.optional), percentAvailable: pct, safetyNotes, composed:true
+  };
+}
+function capitalize(s){ return s.replace(/\b\w/g, c=>c.toUpperCase()); }
+
+/* =========================================================================
+   AI ENGINE — recipe generation + image-based ingredient recognition
+   -------------------------------------------------------------------------
+   generate() currently scores/composes recipes from RECIPE_BASE locally so
+   the app is fully functional offline and with zero secrets in the client.
+
+   TO CONNECT A REAL LLM (recommended for production):
+   Replace the body of generate() with a fetch() to YOUR OWN backend route,
+   e.g. POST /api/generate-recipe — never call the Anthropic API directly
+   from this file, since that would require embedding a secret key in code
+   that ships to every user's device. Your backend route holds the key and
+   forwards a prompt like the one described in AI_PROMPT_TEMPLATE below,
+   then returns JSON in the same shape generate() returns today, so no other
+   code in this file needs to change.
+   ========================================================================= */
+const AI_PROMPT_TEMPLATE = `You are the recipe engine for Leftover Chef.
+Country/region: {{country}} | Diets: {{diets}} | Allergies to avoid: {{allergies}}
+Ingredients on hand: {{ingredients}}
+Free-form request: "{{request}}"
+Return recipes prioritizing max use of on-hand ingredients and fewest extra purchases.
+Never assert 100% safety. Flag possible allergy conf
