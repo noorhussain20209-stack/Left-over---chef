@@ -1042,4 +1042,269 @@ function renderOnboarding(){
           ${DIETS.map(d=>`
             <button class="pref-tile ${p.diets.includes(d)?"active":""}" onclick="obToggleDiet('${d}')">${d}</button>`).join("")}
         </div>
-      
+        <div style="margin-top:auto; display:flex; gap:10px; padding-top:20px;">
+          <button class="btn btn-ghost" style="flex:1;" onclick="obBack()">Back</button>
+          <button class="btn btn-primary" style="flex:1;" onclick="obNext()">Continue</button>
+        </div>
+      </div>`;
+  }
+
+  // step 3 — allergies
+  return `
+    <div class="onboard-wrap">
+      <div class="progress-track"><div class="progress-fill" style="width:100%;"></div></div>
+      <h2 style="font-size:22px; margin:6px 0 4px;">Anything to avoid?</h2>
+      <p class="muted" style="font-size:13.5px; margin-bottom:10px;">We'll flag these in every recipe. Optional — skip if none apply.</p>
+      <div class="pref-grid">
+        ${COMMON_ALLERGENS.map(a=>`
+          <button class="pref-tile ${p.allergies.includes(a)?"active":""}" onclick="obToggleAllergy('${a}')">${a}</button>`).join("")}
+      </div>
+      <div style="margin-top:auto; display:flex; gap:10px; padding-top:20px;">
+        <button class="btn btn-ghost" style="flex:1;" onclick="obBack()">Back</button>
+        <button class="btn btn-primary" style="flex:1;" onclick="obFinish()">Start Cooking</button>
+      </div>
+    </div>`;
+}
+
+function bindOnboardingEvents(){
+  // All onboarding interactions use inline onclick/oninput handlers — nothing extra to bind globally.
+}
+
+function obNext(){ setState({onboardStep: Math.min(state.onboardStep+1, ONBOARD_STEPS-1)}); }
+function obBack(){ setState({onboardStep: Math.max(state.onboardStep-1, 0)}); }
+
+function obFilterCountries(query){
+  const list = document.getElementById("countryList");
+  if(!list) return;
+  const q = query.trim().toLowerCase();
+  if(!q){ list.classList.add("hidden"); list.innerHTML=""; return; }
+  const matches = COUNTRIES.filter(c=>c.toLowerCase().includes(q)).slice(0,8);
+  if(!matches.length){ list.classList.add("hidden"); list.innerHTML=""; return; }
+  list.classList.remove("hidden");
+  list.innerHTML = matches.map(c=>`<div class="country-item" onclick="obSelectCountry('${c.replace(/'/g,"\\'")}')"><span>${c}</span></div>`).join("");
+}
+
+function obSelectCountry(country){
+  setState({profile:{...state.profile, country}});
+  const input = document.getElementById("countrySearch");
+  if(input) input.value = country;
+  const list = document.getElementById("countryList");
+  if(list){ list.classList.add("hidden"); list.innerHTML=""; }
+}
+
+function obSetSkill(skill){ setState({profile:{...state.profile, skill}}); }
+
+function obToggleDiet(d){
+  const diets = state.profile.diets.includes(d)
+    ? state.profile.diets.filter(x=>x!==d)
+    : [...state.profile.diets, d];
+  setState({profile:{...state.profile, diets}});
+}
+
+function obToggleAllergy(a){
+  const allergies = state.profile.allergies.includes(a)
+    ? state.profile.allergies.filter(x=>x!==a)
+    : [...state.profile.allergies, a];
+  setState({profile:{...state.profile, allergies}});
+}
+
+function obFinish(){ setState({onboarded:true}); }
+
+/* ---------------- ROUTER / RENDER ---------------- */
+function navigate(route){ setState({route}); if(typeof window!=="undefined" && window.scrollTo) window.scrollTo(0,0); }
+
+function render(){
+  const app = document.getElementById("app");
+  document.body.setAttribute("data-theme", state.theme);
+  if(!state.onboarded){ app.innerHTML = renderOnboarding(); bindOnboardingEvents(); return; }
+
+  app.innerHTML = `
+    ${renderTopbar()}
+    <div class="screen fade-in">${renderRoute()}</div>
+    ${renderBottomNav()}
+  `;
+  bindRouteEvents();
+}
+
+function renderTopbar(){
+  const titles = {home:"", cook:"Cook", explore:"Explore", favorites:"Favorites", settings:"Settings"};
+  return `
+  <div class="topbar">
+    <div class="brand">🍳 Leftover Chef</div>
+    <button class="icon-btn" onclick="toggleTheme()">${state.theme==="dark"?"☀️":"🌙"}</button>
+  </div>`;
+}
+function toggleTheme(){ setState({theme: state.theme==="dark"?"light":"dark"}); }
+
+function renderBottomNav(){
+  const items = [["home","🏠","Home"],["cook","🍳","Cook"],["explore","🌎","Explore"],["favorites","❤️","Favorites"],["settings","⚙️","Settings"]];
+  return `<div class="bottomnav">
+    ${items.map(([r,icon,label])=>`
+      <button class="navbtn ${state.route===r?"active":""}" onclick="navigate('${r}')">
+        <span class="navicon">${icon}</span>${label}
+      </button>`).join("")}
+  </div>`;
+}
+
+function renderRoute(){
+  switch(state.route){
+    case "home": return renderHome();
+    case "cook": return renderCook();
+    case "explore": return renderExplore();
+    case "favorites": return renderFavorites();
+    case "settings": return renderSettings();
+    default: return renderHome();
+  }
+}
+
+/* ---------------- HOME ---------------- */
+function renderHome(){
+  const loc = state.profile.country ? `${state.profile.country}${state.profile.region? ", "+state.profile.region:""}` : "";
+  return `
+    <p class="greeting">Good ${timeOfDay()}, Chef 👋</p>
+    ${loc ? `<p class="muted" style="margin-top:-4px;">Cooking from ${loc} · ${state.profile.skill}</p>` : ""}
+    <div class="searchbar" onclick="navigate('cook')">
+      <span>🔍</span><input readonly placeholder="What do you want to cook?">
+    </div>
+    <div class="action-grid">
+      <button class="action-tile" onclick="navigate('cook')"><span class="emoji">🍳</span><b>Cook With Leftovers</b><span>Use what you already have</span></button>
+      <button class="action-tile" onclick="navigate('cook');setTimeout(()=>openScanner(),50)"><span class="emoji">📷</span><b>Scan Ingredients</b><span>Point your camera at the fridge</span></button>
+      <button class="action-tile" onclick="navigate('cook')"><span class="emoji">✨</span><b>Create Any Recipe</b><span>Tell us what you're craving</span></button>
+      <button class="action-tile" onclick="navigate('explore')"><span class="emoji">🌎</span><b>Explore Food</b><span>World & historical cuisine</span></button>
+    </div>
+    ${state.ingredients.some(i=>i.expiry) ? renderExpiryNudge() : ""}
+    <h2 class="section-title">Recently cooked</h2>
+    ${state.history.length ? state.history.slice(0,3).map(recipeCard).join("") : emptyState("🍽️","Nothing cooked yet","Generate a recipe and it'll show up here.")}
+  `;
+}
+function timeOfDay(){ const h=new Date().getHours(); return h<12?"morning":h<18?"afternoon":"evening"; }
+function renderExpiryNudge(){
+  const soon = state.ingredients.find(i=>i.expiry);
+  if(!soon) return "";
+  return `<div class="notice" style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin:14px 0;">
+    <span>Your ${soon.name} may expire soon.</span>
+    <button class="btn btn-gold" style="width:auto;padding:8px 14px;font-size:12.5px;" onclick="navigate('cook')">Use it today</button>
+  </div>`;
+}
+
+/* ---------------- COOK ---------------- */
+function renderCook(){
+  return `
+    <h2 class="section-title">What do you have?</h2>
+    <div class="ing-row">
+      <input id="ingInput" placeholder="e.g. eggs, flour, tomatoes" onkeydown="if(event.key==='Enter')addIngredient()">
+      <button class="btn btn-primary" style="width:auto;padding:12px 18px;" onclick="addIngredient()">Add</button>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px;">
+      ${state.ingredients.length ? state.ingredients.map((i,idx)=>`<span class="chip">${i.name}<button onclick="removeIngredient(${idx})">×</button></span>`).join("") : `<span class="muted" style="font-size:13px;">Your kitchen is waiting — add a few ingredients.</span>`}
+    </div>
+
+    <button class="btn btn-secondary" style="margin-bottom:18px;" onclick="openScanner()">📷 Scan ingredients with camera</button>
+    <div id="scannerPane"></div>
+
+    <h2 class="section-title">Or tell us what you want to make</h2>
+    <textarea id="freeRequest" rows="2" placeholder="e.g. I want to make a chocolate cake"
+      style="width:100%; border:1.5px solid var(--line); border-radius:14px; padding:12px 14px; font-size:14px; margin-bottom:14px; background:var(--card); color:var(--charcoal);"></textarea>
+
+    <button class="btn btn-primary" id="genBtn" onclick="handleGenerate()">✨ Generate Recipes</button>
+
+    <div id="genArea" style="margin-top:20px;"></div>
+
+    ${renderShoppingList()}
+  `;
+}
+function bindRouteEvents(){
+  // nothing global needed; inline handlers cover interactions
+}
+function addIngredient(){
+  const input = document.getElementById("ingInput");
+  const val = input.value.trim();
+  if(!val) return;
+  setState({ingredients:[...state.ingredients, {name:val, qty:"", unit:"", expiry:""}]});
+  document.getElementById("ingInput").value="";
+  document.getElementById("ingInput").focus();
+}
+function removeIngredient(idx){
+  const next = [...state.ingredients]; next.splice(idx,1);
+  setState({ingredients:next});
+}
+function openScanner(){
+  const pane = document.getElementById("scannerPane");
+  if(!pane) return;
+  pane.innerHTML = `
+    <div class="card" style="margin-bottom:18px;">
+      <p class="muted" style="font-size:13px; margin-bottom:10px;">Scan your ingredients and we'll suggest what they might be. You'll always confirm before anything is added.</p>
+      <div class="camera-wrap">
+        <video id="camVideo" autoplay playsinline muted></video>
+        <button class="shutter" onclick="captureAndRecognize()"></button>
+      </div>
+      <div id="scanResult"></div>
+      <button class="link" style="margin-top:10px; background:none;border:none;" onclick="closeScanner()">Close camera</button>
+    </div>`;
+  startCamera();
+}
+function closeScanner(){ stopCamera(); const p=document.getElementById("scannerPane"); if(p) p.innerHTML=""; }
+
+const THINKING_MESSAGES = [
+  "Reading your ingredients…", "Matching global cooking techniques…", "Checking allergies & preferences…",
+  "Weighing flavor combinations…", "Finalizing your recipe…"
+];
+async function handleGenerate(){
+  const btn = document.getElementById("genBtn");
+  const area = document.getElementById("genArea");
+  if(!btn || !area) return;
+
+  const freeInput = document.getElementById("freeRequest");
+  const request = freeInput ? freeInput.value.trim() : "";
+
+  if(!state.ingredients.length && !request){
+    toast("Add a few ingredients or tell us what you want to make");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "✨ Thinking…";
+  let msgIdx = 0;
+  area.innerHTML = `
+    <div class="card" style="text-align:center;">
+      <div class="spinner" style="border-top-color:var(--green); border-color:rgba(46,125,50,.2); margin:0 auto 14px;"></div>
+      <p id="thinkingMsg" class="muted" style="font-size:13.5px;">${THINKING_MESSAGES[0]}</p>
+    </div>`;
+  const msgTimer = setInterval(()=>{
+    msgIdx = (msgIdx+1) % THINKING_MESSAGES.length;
+    const el = document.getElementById("thinkingMsg");
+    if(el) el.textContent = THINKING_MESSAGES[msgIdx];
+  }, 900);
+
+  try{
+    const recipes = await AI_ENGINE.generate({ingredients: state.ingredients, request, profile: state.profile});
+    clearInterval(msgTimer);
+    setState({lastRecipes: recipes});
+    area.innerHTML = recipes.length
+      ? recipes.map((r,i)=>recipeCard(r,i)).join("")
+      : emptyState("🤔","No matches found","Try adding a few more ingredients or rephrasing your request.");
+  }catch(e){
+    clearInterval(msgTimer);
+    area.innerHTML = `<div class="warn-banner">⚠️ Something went wrong generating recipes. Please try again.</div>`;
+  }finally{
+    btn.disabled = false;
+    btn.textContent = "✨ Generate Recipes";
+  }
+}
+
+/* ---------------- RECIPE CARD ---------------- */
+function recipeCard(r, i){
+  const idx = typeof i === "number" ? i : -1;
+  const isFav = state.favorites.some(f=>f.title===r.title);
+  return `
+  <div class="recipe-card">
+    <div class="recipe-top">
+      <div>
+        <h3 class="recipe-title">${r.title}</h3>
+        <p class="muted" style="font-size:12.5px; margin:0;">${r.description||""}</p>
+      </div>
+      ${idx>=0 ? `<button class="fav-btn" onclick="toggleFavorite(${idx})">${isFav?"❤️":"🤍"}</button>` : ""}
+    </div>
+    <div class="recipe-meta">
+      <span>⏱ ${addTimes(r.prepTime,r.cookTime)}</span>
+      <span>👥 ${r.servings||4} se
