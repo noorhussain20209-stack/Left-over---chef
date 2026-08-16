@@ -744,4 +744,209 @@ Country/region: {{country}} | Diets: {{diets}} | Allergies to avoid: {{allergies
 Ingredients on hand: {{ingredients}}
 Free-form request: "{{request}}"
 Return recipes prioritizing max use of on-hand ingredients and fewest extra purchases.
-Never assert 100% safety. Flag possible allergy conf
+Never assert 100% safety. Flag possible allergy conflicts instead of silently substituting.`;
+
+const AI_ENGINE = {
+  async generate({ingredients, request, profile}){
+    await wait(1400); // simulated "thinking" time — long enough for the rotating status messages to show
+    try{
+      const have = ingredients.map(i=>i.name.toLowerCase().trim()).filter(Boolean);
+      const reqLower = (request||"").toLowerCase();
+      const reqWords = reqLower.split(/[^a-z0-9]+/).filter(w=>w.length>2);
+
+      // Parse "without X" / "no X" exclusions from the free-text request
+      const exclusions = [];
+      const withoutMatch = reqLower.match(/\b(?:without|no)\s+([a-z\s]+)/g);
+      if(withoutMatch) withoutMatch.forEach(m=>{
+        const term = m.replace(/^(without|no)\s+/,"").trim().split(/[.,;]/)[0].trim();
+        if(term) exclusions.push(term);
+      });
+
+      let pool = RECIPE_BASE;
+      let hadDirectMatch = false;
+
+      // Bias toward matching titles/cuisine/tags when there's a specific request.
+      // Uses whole-word matching (not substring) so short words like "wat" don't
+      // false-match inside unrelated ingredients like "water".
+      if(reqWords.length){
+        const matched = RECIPE_BASE.filter(r =>
+          reqWords.some(w => wordMatch(r.title, w) || r.tags.includes(w) || wordMatch(r.cuisine, w) || r.ing.some(i=>wordMatch(i.n, w)))
+        );
+        if(matched.length){ pool = matched; hadDirectMatch = true; }
+      }
+
+      // Respect saved diet preferences (Vegetarian, Vegan, Gluten-free, etc.)
+      const activeDiets = (profile.diets||[]).filter(d=>d!=="No preference" && d!=="Spicy" && d!=="Low-spice");
+      if(activeDiets.length){
+        const dietFiltered = pool.filter(r => activeDiets.every(d=>{
+          const excludeList = DIET_EXCLUDES[d];
+          if(!excludeList) return true; // Halal/Low-spice/Spicy aren't ingredient-excludable here — flagged in notes instead
+          return !r.ing.some(i => excludeList.some(bad => i.n.toLowerCase().includes(bad)));
+        }));
+        if(dietFiltered.length) pool = dietFiltered;
+        else if(hadDirectMatch) hadDirectMatch = false; // diet wiped out the only matches — fall through to compose instead
+      }
+
+      let scored = pool.map(r=>{
+        const allIng = r.ing;
+        const haveCount = allIng.filter(i => have.some(h => i.n.toLowerCase().includes(h) || h.includes(i.n.toLowerCase()))).length;
+        const requiredCount = allIng.filter(i=>!i.opt).length || allIng.length;
+        const haveRequired = allIng.filter(i=>!i.opt).filter(i => have.some(h => i.n.toLowerCase().includes(h) || h.includes(i.n.toLowerCase()))).length;
+        let pct = Math.round((haveCount / allIng.length) * 100);
+        if(!have.length) pct = Math.min(35 + Math.round((haveRequired/requiredCount)*10), 60);
+        return {r, pct: Math.max(Math.min(pct, 98), 15)};
+      }).sort((a,b)=> b.pct - a.pct);
+
+      if(!ingredients.length && !reqWords.length){
+        scored = pool.map(r=>({r, pct: 40 + Math.floor(Math.random()*30)}));
+      }
+
+      // A specific request with no close curated match: compose a tailored recipe
+      // instead of returning loosely-related curated dishes.
+      if(reqWords.length && !hadDirectMatch){
+        const composed = composeRecipe(request, have, profile);
+        const curatedTop = scored.slice(0,2).map(({r,pct}) => buildRecipe(r, pct, have, profile, exclusions));
+        return [composed, ...curatedTop];
+      }
+
+      const top = scored.slice(0,4).map(({r,pct}) => buildRecipe(r, pct, have, profile, exclusions));
+      return top;
+    }catch(e){
+      console.error(e);
+      throw new Error("generation_failed");
+    }
+  },
+
+  // Mock vision recognition for the camera flow — see file header note.
+  async recognizeFromImage(){
+    await wait(1100);
+    const guesses = [
+      ["tomato","onion","garlic"], ["egg","milk","flour"], ["potato","carrot","onion"],
+      ["rice","chicken","pepper"], ["banana","flour","egg"]
+    ];
+    return guesses[Math.floor(Math.random()*guesses.length)];
+  }
+};
+
+function buildRecipe(r, pct, have, profile, exclusions){
+  const allIngNames = r.ing.map(i=>i.n.toLowerCase());
+  const allergyHits = (profile.allergies||[]).filter(a =>
+    (ALLERGEN_KEYWORDS[a]||[a.toLowerCase()]).some(kw => allIngNames.some(ing => ing.includes(kw)))
+  );
+  const exclusionHits = (exclusions||[]).filter(ex => allIngNames.some(ing => ing.includes(ex) || ex.includes(ing)));
+
+  const ingredients = r.ing.map(i=>({
+    name:i.n, amount:i.a, optional: !!i.opt,
+    have: have.some(h=> i.n.toLowerCase().includes(h) || h.includes(i.n.toLowerCase()))
+  }));
+  const missing = ingredients.filter(i=>!i.have && !i.optional);
+  const haveCount = ingredients.filter(i=>i.have).length;
+
+  // Description is composed from what's actually true of this match, not a canned line
+  let description = `A ${r.difficulty.toLowerCase()} ${r.cuisine} recipe, ready in about ${addTimes(r.prep,r.cook)}.`;
+  if(have.length){
+    description += haveCount>0
+      ? ` Uses ${haveCount} of ${ingredients.length} ingredients from what you've listed.`
+      : ` Doesn't overlap much with what you've listed — worth checking the missing ingredients below.`;
+  }
+
+  const safetyNotes = [];
+  if(allergyHits.length) safetyNotes.push(`May conflict with your saved allergy/avoidance: ${allergyHits.join(", ")}. Check the ingredient list carefully before cooking.`);
+  if(exclusionHits.length) safetyNotes.push(`You asked to avoid ${exclusionHits.join(", ")} — this recipe normally includes it; see the substitution notes or remove it before cooking.`);
+  if(r.foodSafety && r.foodSafety.length) safetyNotes.push(...r.foodSafety);
+
+  return {
+    title:r.title, description, cuisine:r.cuisine, prepTime:r.prep, cookTime:r.cook, servings:r.servings, difficulty:r.difficulty,
+    oven:r.oven||null, pan:r.pan||null, equipment:r.equipment||[], ingredients, steps:r.steps,
+    substitutions:r.subs||[], storage:r.storage||"", missing,
+    percentAvailable: pct, safetyNotes
+  };
+}
+function addTimes(prep,cook){
+  const p = parseInt(prep)||0, c = parseInt(cook)||0;
+  if(!p && !c) return cook || prep || "a few minutes";
+  return `${p+c} min`;
+}
+function wait(ms){ return new Promise(res=>setTimeout(res, ms)); }
+function wordMatch(haystack, word){
+  if(!haystack || !word) return false;
+  const esc = word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  try{ return new RegExp('\\b'+esc+'\\b','i').test(haystack); }
+  catch(e){ return haystack.toLowerCase().includes(word.toLowerCase()); }
+}
+
+/* =========================================================================
+   CAMERA — real device camera via getUserMedia; recognition is mocked
+   (see AI_ENGINE.recognizeFromImage note above).
+   ========================================================================= */
+let mediaStream = null;
+async function startCamera(){
+  const video = document.getElementById("camVideo");
+  try{
+    mediaStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+    video.srcObject = mediaStream;
+    setState({profile:{...state.profile, cameraPermission:"granted"}});
+  }catch(e){
+    setState({profile:{...state.profile, cameraPermission:"denied"}});
+    toast("Camera access denied — you can still add ingredients manually.");
+  }
+}
+function stopCamera(){ if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; } }
+
+async function captureAndRecognize(){
+  const scanResult = document.getElementById("scanResult");
+  scanResult.innerHTML = `<div class="notice" style="display:flex;align-items:center;gap:10px;"><div class="spinner" style="border-top-color:var(--green); border-color:rgba(63,107,74,.25)"></div> Looking at your ingredients…</div>`;
+  try{
+    const detected = await AI_ENGINE.recognizeFromImage();
+    scanResult.innerHTML = `
+      <p class="muted" style="font-size:13px; margin:14px 0 8px;">We think we spotted these — confirm or edit before adding:</p>
+      <div id="detectedChips" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;">
+        ${detected.map((d,i)=>`<span class="chip" data-i="${i}">${d} <button onclick="removeDetected(${i})">×</button></span>`).join("")}
+      </div>
+      <button class="btn btn-primary" onclick="confirmDetected()">Add confirmed ingredients</button>
+      <p class="muted" style="font-size:11.5px; margin-top:10px;">Camera recognition isn't always accurate — please double-check before cooking.</p>
+    `;
+    window._detected = detected;
+  }catch(e){
+    scanResult.innerHTML = `<div class="warn-banner">⚠ Couldn't recognize ingredients right now. Please add them manually instead.</div>`;
+  }
+}
+function removeDetected(i){ window._detected.splice(i,1); captureAndRecognizeRerender(); }
+function captureAndRecognizeRerender(){
+  const scanResult = document.getElementById("scanResult");
+  const detected = window._detected;
+  scanResult.querySelector("#detectedChips").innerHTML = detected.map((d,i)=>`<span class="chip" data-i="${i}">${d} <button onclick="removeDetected(${i})">×</button></span>`).join("");
+}
+function confirmDetected(){
+  const detected = window._detected || [];
+  const newOnes = detected.filter(d=> !state.ingredients.some(i=>i.name.toLowerCase()===d.toLowerCase()));
+  setState({ingredients:[...state.ingredients, ...newOnes.map(n=>({name:n, qty:"", unit:"", expiry:""}))]});
+  toast(`Added ${newOnes.length} ingredient${newOnes.length!==1?"s":""}`);
+  navigate("cook");
+}
+
+/* ---------------- WORLD CUISINE + HISTORICAL DATA ---------------- */
+const CUISINES = ["South Asian","Middle Eastern","East Asian","Southeast Asian","European","African","North American","South American","Central Asian","Caribbean","Oceanian"];
+
+/* A browsable directory of real, named world dishes. Tapping one hands its
+   name + cuisine to the compose engine, so the app can walk you through
+   basically any dish here (and anything else you search for) with a full
+   technique-based recipe — see composeRecipe() above. */
+const WORLD_DISH_DIRECTORY = {
+  "South Asian":["Chicken Biryani","Butter Chicken","Chana Masala","Dal Tadka","Palak Paneer","Aloo Gobi","Samosa","Rogan Josh","Dosa","Idli","Pakistani Karahi","Nihari","Saag","Kheer","Pav Bhaji","Bengali Fish Curry"],
+  "Middle Eastern":["Hummus","Falafel","Shakshuka","Tabbouleh","Kebab","Kibbeh","Baba Ganoush","Mujaddara","Fattoush","Baklava","Manakish","Mansaf"],
+  "East Asian":["Kung Pao Chicken","Mapo Tofu","Peking Duck","Xiaolongbao","Ramen","Sushi","Okonomiyaki","Bibimbap","Bulgogi","Japchae","Char Siu","Congee","Hot Pot","Dan Dan Noodles"],
+  "Southeast Asian":["Pad Thai","Green Curry","Tom Yum Soup","Nasi Goreng","Rendang","Satay","Pho","Banh Mi","Laksa","Adobo","Sinigang","Som Tam"],
+  "European":["Coq au Vin","Ratatouille","Beef Bourguignon","Paella","Risotto","Carbonara","Moussaka","Goulash","Fish and Chips","Schnitzel","Pierogi","Bouillabaisse"],
+  "African":["Jollof Rice","Injera with Wat","Bunny Chow","Tagine","Bobotie","Egusi Soup","Suya","Couscous","Fufu with Soup","Berbere-Spiced Stew"],
+  "North American":["Clam Chowder","Gumbo","Tacos al Pastor","BBQ Ribs","Poutine","Cornbread","Chili con Carne","Jambalaya","Mole Poblano","Tamales"],
+  "South American":["Feijoada","Ceviche","Empanadas","Asado","Arepas","Lomo Saltado","Churrasco","Pastel de Choclo"],
+  "Central Asian":["Plov","Manti","Lagman","Shashlik","Beshbarmak"],
+  "Caribbean":["Jerk Chicken","Curry Goat","Rice and Peas","Ackee and Saltfish","Roti","Callaloo"],
+  "Oceanian":["Lamington","Pavlova","Meat Pie","Hangi","Damper Bread"]
+};
+
+const HISTORICAL = [
+  {name:"Roman Garum-Style Fish Sauce Bread Dip", period:"Ancient Rome, ~1st century CE", region:"Italian Peninsula", status:"doc",
+    note:"Documented in Roman agricultural and culinary texts as a fermented fish condiment used widely across the empire, from soldiers' rations to elite dining. The original multi-week fermentation isn't safely reproducible at home, so this is a modern stand-in using a light commercial fish sauce.",
+    ing:[{n:"good-quality fish sauce",a:"3 tbsp"},{n:"olive oil",a:"
