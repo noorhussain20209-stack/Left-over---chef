@@ -1307,4 +1307,261 @@ function recipeCard(r, i){
     </div>
     <div class="recipe-meta">
       <span>⏱ ${addTimes(r.prepTime,r.cookTime)}</span>
-      <span>👥 ${r.servings||4} se
+      <span>👥 ${r.servings||4} servings</span>
+      <span>📊 ${r.difficulty}</span>
+      <span class="avail-badge">${r.percentAvailable}% match</span>
+    </div>
+    ${r.safetyNotes && r.safetyNotes.length ? `<div class="warn-banner" style="margin-bottom:10px;">⚠️ ${r.safetyNotes[0]}</div>` : ""}
+    ${r.missing && r.missing.length ? `<p class="muted" style="font-size:12.5px; margin-bottom:10px;">Missing: ${r.missing.map(m=>m.name).join(", ")}</p>` : ""}
+    <div style="display:flex; gap:8px;">
+      <button class="btn btn-primary" style="width:auto; padding:10px 16px; font-size:13px;" onclick="viewRecipe(${idx})">View Recipe</button>
+      ${r.missing && r.missing.length ? `<button class="btn btn-secondary" style="width:auto; padding:10px 16px; font-size:13px;" onclick="addMissingToShoppingList(${idx})">Add missing to list</button>` : ""}
+    </div>
+  </div>`;
+}
+
+function toggleFavorite(idx){
+  const r = state.lastRecipes[idx];
+  if(!r) return;
+  const exists = state.favorites.some(f=>f.title===r.title);
+  const favorites = exists ? state.favorites.filter(f=>f.title!==r.title) : [...state.favorites, r];
+  setState({favorites});
+  toast(exists ? "Removed from favorites" : "Saved to favorites");
+}
+
+function addMissingToShoppingList(idx){
+  const r = state.lastRecipes[idx];
+  if(!r || !r.missing) return;
+  const additions = r.missing
+    .filter(m => !state.shoppingList.some(s=>s.name===m.name))
+    .map(m => ({name:m.name, amount:m.amount||"", checked:false, forRecipe:r.title}));
+  setState({shoppingList:[...state.shoppingList, ...additions]});
+  toast(`Added ${additions.length} item${additions.length!==1?"s":""} to your shopping list`);
+}
+
+/* ---------------- RECIPE DETAIL / COOKING MODE ---------------- */
+let cookingRecipe = null;
+let cookingStepIdx = 0;
+
+function viewRecipe(idx){
+  const r = state.lastRecipes[idx] ?? state.favorites[idx] ?? state.history[idx];
+  if(!r) return;
+  cookingRecipe = r;
+  cookingStepIdx = -1; // -1 = overview screen, 0+ = step-by-step
+  renderCookingOverlay();
+}
+
+function renderCookingOverlay(){
+  let overlay = document.getElementById("cookOverlay");
+  if(!overlay){
+    overlay = document.createElement("div");
+    overlay.id = "cookOverlay";
+    document.body.appendChild(overlay);
+  }
+  overlay.className = "cook-overlay";
+  const r = cookingRecipe;
+  if(!r){ overlay.remove(); return; }
+
+  if(cookingStepIdx === -1){
+    overlay.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h2 style="margin:0; font-size:19px;">${r.title}</h2>
+        <button class="icon-btn" onclick="closeCookingOverlay()">✕</button>
+      </div>
+      <div class="recipe-meta" style="margin-bottom:16px;">
+        <span>⏱ ${addTimes(r.prepTime,r.cookTime)}</span>
+        <span>👥 ${r.servings||4} servings</span>
+        <span>📊 ${r.difficulty}</span>
+        ${r.oven?`<span>🔥 Oven ${r.oven}</span>`:""}
+      </div>
+      ${r.safetyNotes && r.safetyNotes.length ? r.safetyNotes.map(n=>`<div class="warn-banner" style="margin-bottom:10px;">⚠️ ${n}</div>`).join("") : ""}
+      <h3 class="section-title" style="font-size:15.5px;">Ingredients</h3>
+      <div style="margin-bottom:18px;">
+        ${r.ingredients.map(ing=>`
+          <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line); font-size:13.5px;">
+            <span>${ing.have?"✅":"⬜"} ${ing.name}${ing.optional?' <span class="muted">(optional)</span>':""}</span>
+            <span class="muted">${ing.amount||""}</span>
+          </div>`).join("")}
+      </div>
+      ${r.equipment && r.equipment.length ? `<h3 class="section-title" style="font-size:15.5px;">Equipment</h3><p class="muted" style="font-size:13.5px; margin-bottom:18px;">${r.equipment.join(", ")}</p>` : ""}
+      <button class="btn btn-primary" onclick="startCookingSteps()">Start Cooking (${r.steps.length} steps)</button>
+      ${r.storage ? `<p class="muted" style="font-size:12px; margin-top:14px;">${r.storage}</p>` : ""}
+    `;
+    return;
+  }
+
+  const step = r.steps[cookingStepIdx];
+  const isLast = cookingStepIdx === r.steps.length - 1;
+  overlay.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <span class="muted" style="font-size:12.5px; font-weight:700;">STEP ${cookingStepIdx+1} OF ${r.steps.length}</span>
+      <button class="icon-btn" onclick="closeCookingOverlay()">✕</button>
+    </div>
+    <div class="progress-track" style="margin-top:12px;">
+      <div class="progress-fill" style="width:${Math.round(((cookingStepIdx+1)/r.steps.length)*100)}%;"></div>
+    </div>
+    <p class="step-text">${step}</p>
+    <div style="display:flex; gap:10px; margin-top:auto; padding-top:16px;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="prevCookingStep()" ${cookingStepIdx===0?"disabled":""}>Back</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="${isLast?"finishCooking()":"nextCookingStep()"}">${isLast?"Finish":"Next"}</button>
+    </div>
+  `;
+}
+
+function startCookingSteps(){ cookingStepIdx = 0; renderCookingOverlay(); }
+function nextCookingStep(){ cookingStepIdx++; renderCookingOverlay(); }
+function prevCookingStep(){ if(cookingStepIdx>0){ cookingStepIdx--; } else { cookingStepIdx=-1; } renderCookingOverlay(); }
+function closeCookingOverlay(){
+  const overlay = document.getElementById("cookOverlay");
+  if(overlay) overlay.remove();
+  cookingRecipe = null; cookingStepIdx = 0;
+}
+function finishCooking(){
+  const r = cookingRecipe;
+  if(r){
+    const history = [r, ...state.history.filter(h=>h.title!==r.title)].slice(0,20);
+    setState({history});
+    toast("Nice work! Added to your recently cooked.");
+  }
+  closeCookingOverlay();
+  render();
+}
+
+/* ---------------- EXPLORE ---------------- */
+let exploreSelectedCuisine = null;
+
+function renderExplore(){
+  if(exploreSelectedCuisine){
+    const dishes = WORLD_DISH_DIRECTORY[exploreSelectedCuisine] || [];
+    return `
+      <button class="link" style="background:none;border:none;padding:0;margin-bottom:14px;" onclick="exploreSelectedCuisine=null;render()">← Back to Explore</button>
+      <h2 class="section-title">${exploreSelectedCuisine}</h2>
+      ${dishes.map(d=>`
+        <div class="recipe-card" style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-weight:600; font-size:14px;">${d}</span>
+          <button class="btn btn-primary" style="width:auto; padding:9px 14px; font-size:12.5px;" onclick="cookWorldDish('${d.replace(/'/g,"\\'")}')">Cook this</button>
+        </div>`).join("")}
+    `;
+  }
+  return `
+    <h2 class="section-title">World Cuisine</h2>
+    <div class="cuisine-scroll">
+      ${CUISINES.map(c=>`<button class="cuisine-card" onclick="exploreSelectedCuisine='${c}';render()">${c}</button>`).join("")}
+    </div>
+    <h2 class="section-title">From History's Kitchens</h2>
+    ${HISTORICAL.map(h=>`
+      <div class="hist-card">
+        <span class="${h.status==='doc'?'tag-doc':'tag-recon'}">${h.status==='doc'?'Documented':'Reconstruction'}</span>
+        <h3 style="margin:8px 0 2px; font-size:15.5px;">${h.name}</h3>
+        <p class="muted" style="font-size:12px; margin:0 0 8px;">${h.period} · ${h.region}</p>
+        <p style="font-size:13px; margin-bottom:10px;">${h.note}</p>
+        <button class="btn btn-secondary" style="width:auto; padding:9px 14px; font-size:12.5px;" onclick="cookHistoricalDish(${HISTORICAL.indexOf(h)})">View recipe</button>
+      </div>`).join("")}
+  `;
+}
+
+function cookWorldDish(name){
+  navigate("cook");
+  setTimeout(()=>{
+    const field = document.getElementById("freeRequest");
+    if(field){ field.value = `I want to make ${name}`; }
+  }, 60);
+}
+
+function cookHistoricalDish(idx){
+  const h = HISTORICAL[idx];
+  if(!h) return;
+  cookingRecipe = {
+    title: h.name, description: h.note, cuisine: h.region, prepTime:"varies", cookTime:"varies",
+    servings:4, difficulty:"Medium", oven:null, pan:null, equipment:[],
+    ingredients: h.ing.map(i=>({name:i.n, amount:i.a, optional: !!i.opt, have:false})),
+    steps: h.steps, substitutions:[], storage:"", missing:[], percentAvailable:0,
+    safetyNotes:[`Historical ${h.status==='doc'?'documentation':'reconstruction'}: ${h.period}, ${h.region}.`]
+  };
+  cookingStepIdx = -1;
+  renderCookingOverlay();
+}
+
+/* ---------------- FAVORITES ---------------- */
+function renderFavorites(){
+  return `
+    <h2 class="section-title">Your Favorites</h2>
+    ${state.favorites.length
+      ? state.favorites.map((r)=>recipeCard(r, state.lastRecipes.indexOf(r)>=0 ? state.lastRecipes.indexOf(r) : -1)).join("")
+      : emptyState("❤️","No favorites yet","Tap the heart on any recipe to save it here.")}
+  `;
+}
+
+/* ---------------- SETTINGS ---------------- */
+function renderSettings(){
+  const p = state.profile;
+  return `
+    <h2 class="section-title">Profile</h2>
+    <div class="card" style="margin-bottom:18px;">
+      <div class="setting-row"><span>Name</span><span class="muted">${p.name}</span></div>
+      <div class="setting-row"><span>Location</span><span class="muted">${p.country||"Not set"}${p.region?", "+p.region:""}</span></div>
+      <div class="setting-row"><span>Skill level</span><span class="muted">${p.skill}</span></div>
+      <div class="setting-row" style="border-bottom:none;"><span>Diets</span><span class="muted">${p.diets.length?p.diets.join(", "):"None"}</span></div>
+    </div>
+    <h2 class="section-title">Preferences</h2>
+    <div class="card" style="margin-bottom:18px;">
+      <div class="setting-row">
+        <span>Dark mode</span>
+        <button class="switch ${state.theme==='dark'?'on':''}" onclick="toggleTheme()"><span class="knob"></span></button>
+      </div>
+      <div class="setting-row" style="border-bottom:none;">
+        <span>Allergies / avoidances</span>
+        <span class="muted">${p.allergies.length?p.allergies.join(", "):"None"}</span>
+      </div>
+    </div>
+    <h2 class="section-title">Data</h2>
+    <div class="card">
+      <button class="btn btn-ghost" onclick="clearAllData()">Reset app data</button>
+    </div>
+  `;
+}
+
+function clearAllData(){
+  if(!confirm("This clears all your ingredients, favorites, and history. Continue?")) return;
+  state = structuredClone(defaultState);
+  save();
+  render();
+  toast("App data reset");
+}
+
+/* ---------------- SHOPPING LIST ---------------- */
+function renderShoppingList(){
+  if(!state.shoppingList.length) return "";
+  return `
+    <h2 class="section-title">Shopping List</h2>
+    <div class="card" style="margin-bottom:18px;">
+      ${state.shoppingList.map((item,idx)=>`
+        <div class="setting-row" style="${idx===state.shoppingList.length-1?'border-bottom:none;':''}">
+          <span style="${item.checked?'text-decoration:line-through; opacity:.5;':''}">${item.name}${item.amount?` <span class="muted">(${item.amount})</span>`:""}</span>
+          <input type="checkbox" ${item.checked?"checked":""} onchange="toggleShoppingItem(${idx})">
+        </div>`).join("")}
+    </div>
+  `;
+}
+
+function toggleShoppingItem(idx){
+  const list = [...state.shoppingList];
+  list[idx] = {...list[idx], checked: !list[idx].checked};
+  setState({shoppingList:list});
+}
+
+/* ---------------- EMPTY STATE HELPER ---------------- */
+function emptyState(emoji, title, sub){
+  return `
+    <div class="empty-state">
+      <div class="emoji">${emoji}</div>
+      <p style="font-weight:700; margin:0 0 4px;">${title}</p>
+      <p class="muted" style="font-size:13px; margin:0;">${sub}</p>
+    </div>`;
+}
+
+/* ---------------- BOOTSTRAP ---------------- */
+render();
+</script>
+</body>
+</html>
