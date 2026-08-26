@@ -1269,17 +1269,13 @@ function openScanner(){
   if(!pane) return;
   pane.innerHTML = `
     <div class="card" style="margin-bottom:18px;">
-      <p class="muted" style="font-size:13px; margin-bottom:10px;">Scan your ingredients and we'll suggest what they might be. You'll always confirm before anything is added.</p>
-      <div class="camera-wrap">
-        <video id="camVideo" autoplay playsinline muted></video>
-        <button class="shutter" onclick="captureAndRecognize()"></button>
-      </div>
+      <p class="muted" style="font-size:13px; margin-bottom:10px;">Take a photo of your ingredients and we'll suggest what they might be. You'll always confirm before anything is added.</p>
+      <button class="btn btn-primary" onclick="captureAndRecognize()">📷 Take Photo</button>
       <div id="scanResult"></div>
-      <button class="link" style="margin-top:10px; background:none;border:none;" onclick="closeScanner()">Close camera</button>
+      <button class="link" style="margin-top:10px; background:none;border:none;" onclick="closeScanner()">Close</button>
     </div>`;
-  startCamera();
 }
-function closeScanner(){ stopCamera(); const p=document.getElementById("scannerPane"); if(p) p.innerHTML=""; }
+function closeScanner(){ const p=document.getElementById("scannerPane"); if(p) p.innerHTML=""; }
 
 const THINKING_MESSAGES = [
   "Reading your ingredients…", "Matching global cooking techniques…", "Checking allergies & preferences…",
