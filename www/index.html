@@ -662,14 +662,53 @@ function detectMethod(text){
   return "stovetop";
 }
 
+/** Strips conversational filler ("I want to make", "can you help me cook",
+ *  "recipe for", etc.) so the dish name used for the title/search is just
+ *  the dish itself, not the whole sentence the user typed. */
+const REQUEST_FILLER_PATTERNS = [
+  /^(i\s*('?d|would)?\s*(want|wanna|like|love)\s+to\s+(make|cook|eat|have|try)\s+)/i,
+  /^(i\s*(want|wanna|need)\s+)/i,
+  /^(can\s+(you|i)\s+(please\s+)?(help\s+me\s+)?(make|cook)\s+)/i,
+  /^(could\s+you\s+(please\s+)?(make|cook)\s+)/i,
+  /^(help\s+me\s+(make|cook)\s+)/i,
+  /^(how\s+(do|can)\s+i\s+(make|cook)\s+)/i,
+  /^(please\s+(make|cook)\s+)/i,
+  /^(make\s+me\s+)/i,
+  /^(recipe\s+for\s+)/i,
+  /^(i'?m\s+craving\s+)/i,
+  /^(let'?s\s+(make|cook)\s+)/i,
+  /^(i\s+feel\s+like\s+(making|cooking|eating)\s+)/i
+];
+function cleanDishName(raw){
+  let s = (raw||"").trim();
+  for(const pat of REQUEST_FILLER_PATTERNS){ s = s.replace(pat, ""); }
+  s = s.replace(/^(a|an|the)\s+/i, "");
+  s = s.replace(/\s+(please|tonight|for dinner|for me|today|asap)$/i, "").trim();
+  return s;
+}
+/** Rough heuristic for "this doesn't look like a real dish name" (e.g. random
+ *  keyboard mashing) — a long run of consonants with no vowel is very rare in
+ *  real words, so it's a reasonable, lightweight red flag without needing a
+ *  full dictionary. Not perfect, but far better than titling a recipe after
+ *  literal gibberish. */
+function looksLikeGibberish(s){
+  if(!s || s.trim().length < 3) return true;
+  if(/[^aeiou\s'-]{5,}/i.test(s)) return true;
+  return false;
+}
+
 /** Composes a full recipe for an arbitrary dish name/request when nothing in
  *  RECIPE_BASE is a close match. Clearly marked as AI-composed in the UI. */
 function composeRecipe(dishNameRaw, have, profile){
-  const dishName = (dishNameRaw||"a dish").trim();
-  const searchText = dishName;
+  const cleaned = cleanDishName(dishNameRaw);
+  const isGibberish = looksLikeGibberish(cleaned);
+  const dishName = isGibberish ? "" : (cleaned || "a dish");
+  const displayDishName = isGibberish ? "this dish" : dishName;
+  const searchText = cleaned || dishNameRaw || "";
   const cuisineProfile = detectCuisine(searchText, profile);
   const method = detectMethod(searchText);
-  const title = dishName.length>3 ? capitalize(dishName) : `${cuisineProfile.cuisine} Dish`;
+  const methodLabel = METHOD_TEMPLATES[method] ? METHOD_TEMPLATES[method].label : "bake";
+  const title = (dishName.length>3 && !isGibberish) ? capitalize(dishName) : `${cuisineProfile.cuisine} ${capitalize(methodLabel)}`;
 
   let steps, ingredients, oven=null, pan=null, equipment=[], prep="15 min", cook="25 min", difficulty="Medium";
 
@@ -694,7 +733,7 @@ function composeRecipe(dishNameRaw, have, profile){
     steps = m.steps(cuisineProfile);
     ingredients = [
       ...cuisineProfile.staples.map((s,i)=>({n:s, a:i<2?"to taste":"a small amount", opt:i>=2})),
-      {n:capitalize(dishName)+" (main ingredient)", a:"to taste — use what you have on hand"},
+      {n:capitalize(displayDishName)+" (main ingredient)", a:"to taste — use what you have on hand"},
       {n:cuisineProfile.starch.split(" or ")[0], a:"to serve", opt:true}
     ];
     equipment = method==="bake" ? [] : method==="soup"||method==="stew" ? ["Large pot"] : method==="stirfry" ? ["Wok or wide pan"] : ["Pan or pot"];
@@ -712,11 +751,16 @@ function composeRecipe(dishNameRaw, have, profile){
     (ALLERGEN_KEYWORDS[a]||[a.toLowerCase()]).some(kw => ingObjs.some(i=>i.name.toLowerCase().includes(kw)))
   );
   const safetyNotes = [];
+  if(isGibberish) safetyNotes.push(`Wasn't able to pin down a specific dish from "${dishNameRaw}" — this is a solid ${cuisineProfile.cuisine} ${methodLabel} built from general technique instead. Try naming a specific dish (e.g. "chicken biryani") for something more tailored.`);
   if(allergyHits.length) safetyNotes.push(`May conflict with your saved allergy/avoidance: ${allergyHits.join(", ")}. Check carefully before cooking.`);
-  safetyNotes.push(`This recipe was composed by the app's recipe engine for "${dishName}" based on common ${cuisineProfile.cuisine} techniques, rather than pulled from a single verified source — cross-check quantities and technique against a trusted recipe if this dish has a traditional method you want to match exactly.`);
+  safetyNotes.push(`Composed by the app's recipe engine for "${displayDishName}" using real ${cuisineProfile.cuisine} technique, rather than pulled from a single verified source — cross-check quantities against a trusted recipe if this dish has a traditional method you want to match exactly.`);
+
+  const chefLine = have.length
+    ? `Built around what's already in your kitchen, using the technique real ${cuisineProfile.cuisine} cooks rely on for a good ${methodLabel}.`
+    : `A confident, technique-first take on ${displayDishName} — the kind of ${methodLabel} a ${cuisineProfile.cuisine} home cook would recognize.`;
 
   return {
-    title, description:`An AI-composed ${cuisineProfile.cuisine} recipe idea for ${dishName}, built from common ${METHOD_TEMPLATES[method]?METHOD_TEMPLATES[method].label:"baking"} technique.`,
+    title, description:`${chefLine} Ready in about ${addTimes(prep,cook)}.`,
     cuisine:`${cuisineProfile.cuisine}-inspired (${cuisineProfile.region})`, prepTime:prep, cookTime:cook, servings:4, difficulty,
     oven, pan, equipment, ingredients:ingObjs, steps, substitutions:[], storage:"Storage varies by dish — refrigerate leftovers within 2 hours and use within 3–4 days as a general rule.",
     missing: ingObjs.filter(i=>!i.have && !i.optional), percentAvailable: pct, safetyNotes, composed:true
