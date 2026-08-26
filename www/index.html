@@ -811,12 +811,13 @@ const AI_ENGINE = {
     await wait(1400); // simulated "thinking" time — long enough for the rotating status messages to show
     try{
       const have = ingredients.map(i=>i.name.toLowerCase().trim()).filter(Boolean);
-      const reqLower = (request||"").toLowerCase();
+      const cleanedRequest = cleanDishName(request);
+      const reqLower = (cleanedRequest||"").toLowerCase();
       const reqWords = reqLower.split(/[^a-z0-9]+/).filter(w=>w.length>2);
 
       // Parse "without X" / "no X" exclusions from the free-text request
       const exclusions = [];
-      const withoutMatch = reqLower.match(/\b(?:without|no)\s+([a-z\s]+)/g);
+      const withoutMatch = (request||"").toLowerCase().match(/\b(?:without|no)\s+([a-z\s]+)/g);
       if(withoutMatch) withoutMatch.forEach(m=>{
         const term = m.replace(/^(without|no)\s+/,"").trim().split(/[.,;]/)[0].trim();
         if(term) exclusions.push(term);
@@ -825,13 +826,20 @@ const AI_ENGINE = {
       let pool = RECIPE_BASE;
       let hadDirectMatch = false;
 
-      // Bias toward matching titles/cuisine/tags when there's a specific request.
-      // Uses whole-word matching (not substring) so short words like "wat" don't
-      // false-match inside unrelated ingredients like "water".
+      // Match on title/cuisine/tags only — NOT on individual ingredient names —
+      // and require covering MORE THAN HALF the request's words, not just any
+      // single one. A single generic word ("chicken") still matches a curated
+      // "chicken" dish fine on its own, but when the request names something
+      // more specific ("chicken biryani") and only the generic word overlaps,
+      // that's not really the same dish — better to compose a tailored one
+      // than substitute something only loosely related.
+      // Whole-word matching (not substring) avoids short words like "wat"
+      // false-matching inside "water".
       if(reqWords.length){
-        const matched = RECIPE_BASE.filter(r =>
-          reqWords.some(w => wordMatch(r.title, w) || r.tags.includes(w) || wordMatch(r.cuisine, w) || r.ing.some(i=>wordMatch(i.n, w)))
-        );
+        const matched = RECIPE_BASE.filter(r =>{
+          const hits = reqWords.filter(w => wordMatch(r.title, w) || r.tags.includes(w) || wordMatch(r.cuisine, w)).length;
+          return hits / reqWords.length > 0.5;
+        });
         if(matched.length){ pool = matched; hadDirectMatch = true; }
       }
 
