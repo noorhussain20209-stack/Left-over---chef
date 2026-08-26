@@ -689,11 +689,27 @@ function cleanDishName(raw){
 /** Rough heuristic for "this doesn't look like a real dish name" (e.g. random
  *  keyboard mashing) — a long run of consonants with no vowel is very rare in
  *  real words, so it's a reasonable, lightweight red flag without needing a
- *  full dictionary. Not perfect, but far better than titling a recipe after
- *  literal gibberish. */
+ *  full dictionary. Any word the app already recognizes from its own dish
+ *  directory (e.g. "schnitzel") is exempted first, so real dish names with
+ *  unusual consonant clusters are never wrongly flagged. Not perfect, but far
+ *  better than titling a recipe after literal gibberish. */
+let _knownDishWordsCache = null;
+function getKnownDishWords(){
+  if(_knownDishWordsCache) return _knownDishWordsCache;
+  const set = new Set();
+  const addWords = (name)=> name.toLowerCase().split(/\s+/).forEach(w=>{
+    const clean = w.replace(/[^a-z]/g,""); if(clean.length>=4) set.add(clean);
+  });
+  Object.values(WORLD_DISH_DIRECTORY).flat().forEach(addWords);
+  RECIPE_BASE.forEach(r=>addWords(r.title));
+  _knownDishWordsCache = set;
+  return set;
+}
 function looksLikeGibberish(s){
   if(!s || s.trim().length < 3) return true;
-  if(/[^aeiou\s'-]{5,}/i.test(s)) return true;
+  const words = s.toLowerCase().split(/\s+/).map(w=>w.replace(/[^a-z]/g,""));
+  if(words.some(w=>w.length>=4 && getKnownDishWords().has(w))) return false;
+  if(/[^aeiou\s'-]{4,}/i.test(s)) return true;
   return false;
 }
 
