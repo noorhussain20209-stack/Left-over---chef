@@ -232,6 +232,12 @@ function load(){
 }
 function save(){ try{ localStorage.setItem(DB_KEY, JSON.stringify(state)); }catch(e){ console.warn("save failed", e); } }
 function setState(patch){ state = {...state, ...patch}; save(); render(); }
+/** Same as setState but skips the re-render. Use this inside a function that
+ *  captured a DOM element reference earlier and still needs to write into it
+ *  afterward — a normal setState() call would rebuild the whole screen via
+ *  render(), silently detaching that earlier reference so anything written
+ *  to it afterward would end up invisible. */
+function setStateQuiet(patch){ state = {...state, ...patch}; save(); }
 
 function toast(msg){
   const t = document.getElementById("toast");
