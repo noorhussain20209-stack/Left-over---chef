@@ -960,7 +960,7 @@ async function captureAndRecognize(){
     const CameraPlugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Camera;
     if(CameraPlugin){
       await CameraPlugin.getPhoto({resultType:"uri", source:"CAMERA", quality:70, saveToGallery:false});
-      setState({profile:{...state.profile, cameraPermission:"granted"}});
+      setStateQuiet({profile:{...state.profile, cameraPermission:"granted"}});
     } // no native Camera plugin available (e.g. a plain desktop browser preview) — fall through to recognition below anyway
     const detected = await AI_ENGINE.recognizeFromImage();
     scanResult.innerHTML = `
@@ -973,7 +973,7 @@ async function captureAndRecognize(){
     `;
     window._detected = detected;
   }catch(e){
-    setState({profile:{...state.profile, cameraPermission:"denied"}});
+    setStateQuiet({profile:{...state.profile, cameraPermission:"denied"}});
     scanResult.innerHTML = `<div class="warn-banner">⚠ Couldn't access the camera or recognize ingredients right now. Please add them manually instead.</div>`;
   }
 }
