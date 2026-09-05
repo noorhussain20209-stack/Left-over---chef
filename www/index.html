@@ -955,13 +955,16 @@ function wordMatch(haystack, word){
    ========================================================================= */
 async function captureAndRecognize(){
   const scanResult = document.getElementById("scanResult");
-  scanResult.innerHTML = `<div class="notice" style="display:flex;align-items:center;gap:10px;"><div class="spinner" style="border-top-color:var(--green); border-color:rgba(63,107,74,.25)"></div> Looking at your ingredients…</div>`;
+  scanResult.innerHTML = `<div class="notice" style="display:flex;align-items:center;gap:10px;"><div class="spinner" style="border-top-color:var(--green); border-color:rgba(63,107,74,.25)"></div> Opening camera…</div>`;
+  const CameraPlugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Camera;
+  if(!CameraPlugin){
+    scanResult.innerHTML = `<div class="warn-banner">⚠ Camera isn't available in this build (Capacitor.Plugins.Camera not found — the native plugin may not be wired into this APK yet). Please add ingredients manually for now.</div>`;
+    return;
+  }
   try{
-    const CameraPlugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Camera;
-    if(CameraPlugin){
-      await CameraPlugin.getPhoto({resultType:"uri", source:"CAMERA", quality:70, saveToGallery:false});
-      setStateQuiet({profile:{...state.profile, cameraPermission:"granted"}});
-    } // no native Camera plugin available (e.g. a plain desktop browser preview) — fall through to recognition below anyway
+    await CameraPlugin.getPhoto({resultType:"uri", source:"CAMERA", quality:70, saveToGallery:false});
+    setStateQuiet({profile:{...state.profile, cameraPermission:"granted"}});
+    scanResult.innerHTML = `<div class="notice" style="display:flex;align-items:center;gap:10px;"><div class="spinner" style="border-top-color:var(--green); border-color:rgba(63,107,74,.25)"></div> Looking at your ingredients…</div>`;
     const detected = await AI_ENGINE.recognizeFromImage();
     scanResult.innerHTML = `
       <p class="muted" style="font-size:13px; margin:14px 0 8px;">We think we spotted these — confirm or edit before adding:</p>
@@ -969,12 +972,12 @@ async function captureAndRecognize(){
         ${detected.map((d,i)=>`<span class="chip" data-i="${i}">${d} <button onclick="removeDetected(${i})">×</button></span>`).join("")}
       </div>
       <button class="btn btn-primary" onclick="confirmDetected()">Add confirmed ingredients</button>
-      <p class="muted" style="font-size:11.5px; margin-top:10px;">Camera recognition isn't always accurate — please double-check before cooking.</p>
+      <p class="muted" style="font-size:11.5px; margin-top:10px;">⚠ Demo mode: this app has no real vision AI connected yet, so these are placeholder guesses, not an actual reading of your photo. Please check and edit them.</p>
     `;
     window._detected = detected;
   }catch(e){
     setStateQuiet({profile:{...state.profile, cameraPermission:"denied"}});
-    scanResult.innerHTML = `<div class="warn-banner">⚠ Couldn't access the camera or recognize ingredients right now. Please add them manually instead.</div>`;
+    scanResult.innerHTML = `<div class="warn-banner">⚠ Camera error: ${(e && e.message) ? e.message : e}</div>`;
   }
 }
 function removeDetected(i){ window._detected.splice(i,1); captureAndRecognizeRerender(); }
