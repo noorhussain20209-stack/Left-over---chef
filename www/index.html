@@ -1110,6 +1110,27 @@ const AI_ENGINE = {
         scored = pool.map(r=>({r, pct: 40 + Math.floor(Math.random()*30)}));
       }
 
+      // Ingredients only, no free-text request: also scan the much larger
+      // world-dish knowledge table for dishes whose signature ingredients
+      // overlap with what's on hand. Without this, ingredient-based search
+      // was permanently capped at whatever's in the small curated RECIPE_BASE
+      // list, no matter how many ingredients were entered.
+      if(have.length && !reqWords.length){
+        const dishMatches = Object.keys(WORLD_DISH_KNOWLEDGE).map(name=>{
+          const d = WORLD_DISH_KNOWLEDGE[name];
+          const hitCount = d.key.filter(k => have.some(h => k.includes(h) || h.includes(k))).length;
+          return {name, hitCount};
+        }).filter(m => m.hitCount >= 2)
+          .sort((a,b)=> b.hitCount - a.hitCount)
+          .slice(0, 3);
+
+        if(dishMatches.length){
+          const composedMatches = dishMatches.map(m => composeRecipe(m.name, have, profile));
+          const curatedTop = scored.slice(0,2).map(({r,pct}) => buildRecipe(r, pct, have, profile, exclusions));
+          return [...composedMatches, ...curatedTop];
+        }
+      }
+
       // A specific request with no close curated match: compose a tailored recipe
       // instead of returning loosely-related curated dishes.
       if(reqWords.length && !hadDirectMatch){
