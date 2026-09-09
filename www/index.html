@@ -946,37 +946,51 @@ function composeRecipe(dishNameRaw, have, profile){
   const dishName = isGibberish ? "" : (cleaned || "a dish");
   const displayDishName = isGibberish ? "this dish" : dishName;
   const searchText = cleaned || dishNameRaw || "";
-  const cuisineProfile = detectCuisine(searchText, profile);
-  const method = detectMethod(searchText);
+
+  // Check the expanded world-dish knowledge table first — it recognizes many
+  // more specific named dishes with the CORRECT cuisine and cooking technique,
+  // instead of falling back to a generic country/method guess.
+  const knownDish = isGibberish ? null : detectDishKnowledge(searchText);
+  const cuisineProfile = knownDish ? (CUISINE_PROFILES[knownDish.cuisine] || detectCuisine(searchText, profile)) : detectCuisine(searchText, profile);
+  const method = knownDish ? knownDish.method : detectMethod(searchText);
   const methodLabel = METHOD_TEMPLATES[method] ? METHOD_TEMPLATES[method].label : "bake";
-  const title = (dishName.length>3 && !isGibberish) ? capitalize(dishName) : `${cuisineProfile.cuisine} ${capitalize(methodLabel)}`;
+  const title = knownDish ? capitalize(knownDish.name) : ((dishName.length>3 && !isGibberish) ? capitalize(dishName) : `${cuisineProfile.cuisine} ${capitalize(methodLabel)}`);
 
   let steps, ingredients, oven=null, pan=null, equipment=[], prep="15 min", cook="25 min", difficulty="Medium";
 
   if(method === "bake"){
-    const subtype = detectBakeSubtype(searchText);
+    const subtype = (knownDish && knownDish.sub) ? knownDish.sub : detectBakeSubtype(searchText);
     const b = BAKE_SUBTYPES[subtype];
     oven = b.ovenDefault; pan = b.panDefault;
     equipment = ["Mixing bowl","Measuring cups/spoons", subtype==="bread"||subtype==="flatbread" ? "Work surface for kneading":"Hand or stand mixer", pan];
     steps = [`Preheat the oven to ${oven}${subtype==="flatbread"?" (or skip — this is cooked on the stovetop)":""} and prepare your ${pan}.`, ...b.mix, ...b.finish];
-    ingredients = [
-      {n:"flour",a:"a base of 250–350 g depending on batch size"},
-      {n:"sugar",a: subtype==="bread"||subtype==="flatbread" ? "a pinch, if the recipe calls for it" : "150–180 g", opt: subtype==="bread"||subtype==="flatbread"},
-      {n: subtype==="bread"||subtype==="flatbread" ? "yeast or another leavening" : "baking powder or baking soda", a:"as needed for the leavening this bake type uses"},
-      {n:"salt", a:"1/2–1 tsp"},
-      {n:"egg", a:"1–2 large", opt: subtype==="bread"||subtype==="flatbread"},
-      {n: subtype==="bread"||subtype==="flatbread" ? "water" : "milk", a:"as needed to bring the mixture together"},
-      {n:"butter or oil", a:"as the recipe's fat component"}
-    ];
+    if(knownDish){
+      ingredients = knownDish.key.map((ing,i)=>({n:ing, a: i===0 ? "the main amount, to taste" : "to taste", opt:false}));
+    } else {
+      ingredients = [
+        {n:"flour",a:"a base of 250–350 g depending on batch size"},
+        {n:"sugar",a: subtype==="bread"||subtype==="flatbread" ? "a pinch, if the recipe calls for it" : "150–180 g", opt: subtype==="bread"||subtype==="flatbread"},
+        {n: subtype==="bread"||subtype==="flatbread" ? "yeast or another leavening" : "baking powder or baking soda", a:"as needed for the leavening this bake type uses"},
+        {n:"salt", a:"1/2–1 tsp"},
+        {n:"egg", a:"1–2 large", opt: subtype==="bread"||subtype==="flatbread"},
+        {n: subtype==="bread"||subtype==="flatbread" ? "water" : "milk", a:"as needed to bring the mixture together"},
+        {n:"butter or oil", a:"as the recipe's fat component"}
+      ];
+    }
     prep = subtype==="bread" ? "20 min + rise" : "15 min"; cook = "20–30 min"; difficulty = subtype==="pie"||subtype==="bread" ? "Hard":"Medium";
   } else {
     const m = METHOD_TEMPLATES[method];
     steps = m.steps(cuisineProfile);
-    ingredients = [
-      ...cuisineProfile.staples.map((s,i)=>({n:s, a:i<2?"to taste":"a small amount", opt:i>=2})),
-      {n:capitalize(displayDishName)+" (main ingredient)", a:"to taste — use what you have on hand"},
-      {n:cuisineProfile.starch.split(" or ")[0], a:"to serve", opt:true}
-    ];
+    if(knownDish){
+      ingredients = knownDish.key.map((ing,i)=>({n:ing, a: i===0 ? "the main amount, to taste" : "to taste", opt:false}));
+      ingredients.push({n:cuisineProfile.starch.split(" or ")[0], a:"to serve", opt:true});
+    } else {
+      ingredients = [
+        ...cuisineProfile.staples.map((s,i)=>({n:s, a:i<2?"to taste":"a small amount", opt:i>=2})),
+        {n:capitalize(displayDishName)+" (main ingredient)", a:"to taste — use what you have on hand"},
+        {n:cuisineProfile.starch.split(" or ")[0], a:"to serve", opt:true}
+      ];
+    }
     equipment = method==="bake" ? [] : method==="soup"||method==="stew" ? ["Large pot"] : method==="stirfry" ? ["Wok or wide pan"] : ["Pan or pot"];
     difficulty = "Medium";
   }
@@ -994,7 +1008,9 @@ function composeRecipe(dishNameRaw, have, profile){
   const safetyNotes = [];
   if(isGibberish) safetyNotes.push(`Wasn't able to pin down a specific dish from "${dishNameRaw}" — this is a solid ${cuisineProfile.cuisine} ${methodLabel} built from general technique instead. Try naming a specific dish (e.g. "chicken biryani") for something more tailored.`);
   if(allergyHits.length) safetyNotes.push(`May conflict with your saved allergy/avoidance: ${allergyHits.join(", ")}. Check carefully before cooking.`);
-  safetyNotes.push(`Composed by the app's recipe engine for "${displayDishName}" using real ${cuisineProfile.cuisine} technique, rather than pulled from a single verified source — cross-check quantities against a trusted recipe if this dish has a traditional method you want to match exactly.`);
+  safetyNotes.push(knownDish
+    ? `Recognized as a classic ${cuisineProfile.cuisine} dish and composed using its real signature ingredients and technique — still cross-check quantities against a trusted recipe for an exact traditional result.`
+    : `Composed by the app's recipe engine for "${displayDishName}" using real ${cuisineProfile.cuisine} technique, rather than pulled from a single verified source — cross-check quantities against a trusted recipe if this dish has a traditional method you want to match exactly.`);
 
   const chefLine = have.length
     ? `Built around what's already in your kitchen, using the technique real ${cuisineProfile.cuisine} cooks rely on for a good ${methodLabel}.`
