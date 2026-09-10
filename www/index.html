@@ -1023,7 +1023,7 @@ function composeRecipe(dishNameRaw, have, profile){
     missing: ingObjs.filter(i=>!i.have && !i.optional), percentAvailable: pct, safetyNotes, composed:true
   };
 }
-function capitalize(s){ return s.replace(/\b\w/g, c=>c.toUpperCase()); }
+function capitalize(s){ return s.replace(/(^|\s)\S/g, c=>c.toUpperCase()); }
 
 /* =========================================================================
    AI ENGINE — recipe generation + image-based ingredient recognition
