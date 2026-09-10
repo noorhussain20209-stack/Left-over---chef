@@ -963,7 +963,9 @@ function composeRecipe(dishNameRaw, have, profile){
     const b = BAKE_SUBTYPES[subtype];
     oven = b.ovenDefault; pan = b.panDefault;
     equipment = ["Mixing bowl","Measuring cups/spoons", subtype==="bread"||subtype==="flatbread" ? "Work surface for kneading":"Hand or stand mixer", pan];
-    steps = [`Preheat the oven to ${oven}${subtype==="flatbread"?" (or skip — this is cooked on the stovetop)":""} and prepare your ${pan}.`, ...b.mix, ...b.finish];
+    steps = subtype==="flatbread"
+      ? [`Get your ${pan} nice and hot before you start.`, ...b.mix, ...b.finish]
+      : [`Preheat the oven to ${oven} and prepare your ${pan}.`, ...b.mix, ...b.finish];
     if(knownDish){
       ingredients = knownDish.key.map((ing,i)=>({n:ing, a: i===0 ? "the main amount, to taste" : "to taste", opt:false}));
     } else {
